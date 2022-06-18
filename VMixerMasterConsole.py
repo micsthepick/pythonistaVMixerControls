@@ -11,7 +11,6 @@ class myFader(ShapeNode):
     def __init__(self, layout, action, *args, **kwargs):
         super().__init__(Path.rect(), *args, **kwargs)
     
-        
     def get_value():
         return self.value
 

@@ -8,19 +8,52 @@ from ui import Path, ScrollView
 DEBUG = True
 
 class MyFader(ShapeNode):
-    def __init__(self, layout, action, *args, **kwargs):
-        super().__init__(Path.rounded_rect(0, 0, 20, 115, 10), '#444', *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        self.length = 240
+        super().__init__(Path.rounded_rect(0, 0, 20, self.length, 10), '#444', *args, **kwargs)
         self.knob = ShapeNode(Path.oval(0, 0, 25, 25), '#fefefe', parent=self)
         # value ranges from 0 to 1, at least for now
-        self.value = 0.0
-        self.anchor_point = (0.5, 1)
+        self.knob_size = 25
+        self.set_raw_value(0.0)
+        self.dragging = False
         
-    def get_value(self):
+    def handle_touch_begin(self, pos, panel_pos):
+        kx, ky = self.knob.point_from_scene(pos)
+        if abs(kx) > 10:
+            return
+        if abs(ky) > 25:
+            return
+        self.dragging = True
+
+    def handle_touch_drag(self, pos, panel_pos):
+        sx, sy = self.point_from_scene(pos)
+        if self.dragging:
+            self.update_value(sy)
+        return self.dragging
+    
+    def handle_touch_ended(self, pos, panel_pos):
+        sx, sy = self.point_from_scene(pos)
+        if self.dragging:
+            self.dragging = False
+            self.update_value(sy)
+            return True
+        return False
+        
+    def update_value(self, y):
+        y_adjusted = min(max(0, y + self.length / 2 - self.knob_size), self.length - self.knob_size)
+        y_adjusted /= self.length - self.knob_size
+        self.set_raw_value(y_adjusted)
+
+    def update_knob_pos(self):
+        y = (self.value - 0.5) * (self.length - self.knob_size)
+        self.knob.position = (0, y)
+
+    def get_raw_value(self):
         return self.value
         
-    def set_value(self, val):
+    def set_raw_value(self, val):
         self.value = val
-        self.knob.position = (0.0, 100.0 * (1 - self.value))
+        self.update_knob_pos()
 
 class ScrollBar(ShapeNode):
     def __init__(self, knob_shape, knob_color, *args, initial_value=1.0, **kwargs):
@@ -56,9 +89,9 @@ class HorizontalScrollBar(ScrollBar):
         self.knob.position = (x_adjusted, 0)
         x_adjusted /= self.length - self.knob_size
         self.set_value(x_adjusted)
-        
+
     def handle_touch_begin_safe(self, pos):
-        cx, xy = self.knob.position
+        cx, cy = self.knob.position
         x, y = pos
         if abs(x - cx - self.knob_size/2) < 50:
             self.dragging = True
@@ -83,9 +116,10 @@ class RFader(MyFader):
         self.set_value(init_value)
     
     def get_value(self):
-        if self.value < 0.02:
+        value = self.get_raw_value()
+        if value < 0.02:
             return 'INF'
-        temp_val = self.value - 0.02
+        temp_val = value - 0.02
         temp_val /= 98
         temp_val *= 90
         temp_val -= 80
@@ -93,12 +127,12 @@ class RFader(MyFader):
         
     def set_value(self, val):
         if val.lower() == 'inf':
-            self.value = 0.0
+            self.set_raw_value(0.0)
         f = float(val)
         f += 80
         f /= 90
         f * 98
-        self.value = f + 0.02
+        self.set_raw_value(f + 0.02)
 
 class MyButton(ShapeNode):
     def __init__(self, label, action, *args, **kwargs):
@@ -108,14 +142,20 @@ class MyButton(ShapeNode):
         self.action = action
     
     # called for EVERY touch, not just ones in the area of the button
-    def handle_touch(self, pos):
+    def handle_touch_begin(self, pos, panel_pos):
         if self.frame.contains_point(pos):
             self.action(self.command)
             self._reverseHeldAnimation()
     
+    def handle_touch_move(self, pos, panel_pos):
+        self.handle_selection(pos)
+
+    def handle_touch_ended(self, pos, panel_pos):
+        self.handle_selection(pos)
+
     def _setHeldTrue(self):
         self.button_held = True
-    
+
     def _setHeldFalse(self):
         self.button_held = False
         
@@ -155,59 +195,65 @@ class MuteButton(MyButton):
         super().__init__(label, action, path, '#f33', '#400', *args, **kwargs)
         self.command = 'MUC:' + str(id) + ',1'
 
-SCROLLBAR_HEIGHT = 30
 
 class Main(Scene):    
     def setup(self):
         self.CHANNEL_COUNT = 25 # 16 out, 8 mtx, main
-        self.root_node = Node(parent=self)
+        self.CHANNEL_SCREEN_WIDTH = 68
+        self.SCROLLBAR_HEIGHT = 30
+        self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
+        self.panel_width = max(self.bounds.width, self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT)
+        self.root_node = Node(parent=self, position=(0, self.SCROLLBAR_HEIGHT))
         self.scroll = HorizontalScrollBar(
             self.bounds.width,
-            SCROLLBAR_HEIGHT,
+            self.SCROLLBAR_HEIGHT,
             '#AAA',
             '#FFF',
             parent=self,
-            position=(0, SCROLLBAR_HEIGHT)
+            position=(0, self.SCROLLBAR_HEIGHT)
         )
         self.panel = ShapeNode(
-            Path(0, 0, self.bounds.height - SCROLLBAR_HEIGHT, 40 * self.CHANNEL_COUNT),
+            Path(0, 0, self.panel_height, self.panel_width),
             parent=self.root_node
         )
         self.all_ui_elements = []
+        for r in range(self.CHANNEL_COUNT):
+            self.all_ui_elements.append(
+                RFader(parent=self.panel, position=(self.CHANNEL_SCREEN_WIDTH * (r + 0.5), self.panel_height / 2))
+            )
         
     
     def update_scroll_pos(self):
         self.root_node.position = (
-            max(0, - self.scroll.get_value() * (40 * self.CHANNEL_COUNT - self.bounds.width)),
-            SCROLLBAR_HEIGHT
+            min(0, -self.scroll.get_value() * (self.panel_width - self.bounds.width)),
+            self.SCROLLBAR_HEIGHT
         )
     
     def touch_ended(self, touch):
         pos = touch.location
         if self.scroll.handle_touch_ended_safe(pos):
             self.update_scroll_pos()
-        return
-        pos = self.point_from_scene(pos)
+        pos_panel = self.panel.point_from_scene(pos)
         for elem in self.all_ui_elements:
-            elem.handle_touch(pos)
+            elem.handle_touch_ended(pos, pos_panel)
     
     def touch_moved(self, touch):
         pos = touch.location
         #if pos[1] >= self.bounds.height - SCROLLBAR_HEIGHT:
         if self.scroll.handle_touch_drag_safe(pos):
             self.update_scroll_pos()
-        pos = self.point_from_scene(pos)
-        for button in self.all_ui_elements:
-            button.handle_selection(pos)
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            elem.handle_touch_drag(pos, pos_panel)
     
     def touch_began(self, touch):
         pos = touch.location
-        if pos[1] <= SCROLLBAR_HEIGHT:
+        if pos[1] <= self.SCROLLBAR_HEIGHT:
             self.scroll.handle_touch_begin_safe(pos)
             return
-        pos = self.point_from_scene(pos)
-        for button in self.all_ui_elements:
-            button.handle_selection(pos)
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            elem.handle_touch_begin(pos, pos_panel)
 
 
 class bcolors:
