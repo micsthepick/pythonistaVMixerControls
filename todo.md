@@ -16,7 +16,7 @@
 ## ChannelView
 
 ### urgent fixes
-[ ] move slider control sensing region to same location as it got moved graphically (oops)
+[X] move slider control sensing region to same location as it got moved graphically (oops)
 
 ### base features
 [ ] fader for volume on each channel

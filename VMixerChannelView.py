@@ -155,7 +155,7 @@ class MuteButton(MyButton):
         super().__init__(label, action, path, '#f33', '#400', *args, **kwargs)
         self.command = 'MUC:' + str(id) + ',1'
 
-SCROLL_HEIGHT = 30
+SCROLLBAR_HEIGHT = 30
 
 class Main(Scene):    
     def setup(self):
@@ -163,14 +163,14 @@ class Main(Scene):
         self.root_node = Node(parent=self)
         self.scroll = HorizontalScrollBar(
             self.bounds.width,
-            SCROLL_HEIGHT,
+            SCROLLBAR_HEIGHT,
             '#AAA',
             '#FFF',
             parent=self,
-            position=(0, SCROLL_HEIGHT)
+            position=(0, SCROLLBAR_HEIGHT)
         )
         self.panel = ShapeNode(
-            Path(0, 0, self.bounds.height - SCROLL_HEIGHT, 40 * self.CHANNEL_COUNT),
+            Path(0, 0, self.bounds.height - SCROLLBAR_HEIGHT, 40 * self.CHANNEL_COUNT),
             parent=self.root_node
         )
         self.all_ui_elements = []
@@ -179,7 +179,7 @@ class Main(Scene):
     def update_scroll_pos(self):
         self.root_node.position = (
             max(0, - self.scroll.get_value() * (40 * self.CHANNEL_COUNT - self.bounds.width)),
-            SCROLL_HEIGHT
+            SCROLLBAR_HEIGHT
         )
     
     def touch_ended(self, touch):
@@ -193,7 +193,7 @@ class Main(Scene):
     
     def touch_moved(self, touch):
         pos = touch.location
-        #if pos[1] >= self.bounds.height - SCROLL_HEIGHT:
+        #if pos[1] >= self.bounds.height - SCROLLBAR_HEIGHT:
         if self.scroll.handle_touch_drag_safe(pos):
             self.update_scroll_pos()
         pos = self.point_from_scene(pos)
@@ -202,7 +202,7 @@ class Main(Scene):
     
     def touch_began(self, touch):
         pos = touch.location
-        if pos[1] >= self.bounds.height - SCROLL_HEIGHT:
+        if pos[1] <= SCROLLBAR_HEIGHT:
             self.scroll.handle_touch_begin_safe(pos)
             return
         pos = self.point_from_scene(pos)
