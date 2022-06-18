@@ -8,7 +8,7 @@ from ui import Path
 DEBUG = True
 
 class myFader(ShapeNode):
-    def __init__(self, layout, action *args, **kwargs):
+    def __init__(self, layout, action, *args, **kwargs):
         super().__init__(Path.rect(), *args, **kwargs)
     
         
@@ -73,7 +73,7 @@ class MuteButton(MyButton):
 class Main(Scene):    
     def setup(self):
         self.mute_scene = Node(parent=self)
-        self.volume_scene = Node(parent=self, hidden=True)
+        self.volume_scene = Node(parent=self, position=(self.bounds.width, 0))
         self.scenes = [self.mute_scene, self.volume_scene]
         action = send_command_stub if DEBUG else create_socket_and_send
         self.muteGroupMuteButtons = []
