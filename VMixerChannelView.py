@@ -159,7 +159,7 @@ SCROLL_HEIGHT = 30
 
 class Main(Scene):    
     def setup(self):
-        self.CHANNEL_COUNT = 41 # 32 bus, 8 mtx, main
+        self.CHANNEL_COUNT = 25 # 16 out, 8 mtx, main
         self.root_node = Node(parent=self)
         self.scroll = HorizontalScrollBar(
             self.bounds.width,
