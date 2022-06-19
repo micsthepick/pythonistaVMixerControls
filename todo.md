@@ -25,22 +25,22 @@
 [X] move slider control sensing region to same location as it got moved graphically (oops)
 
 ### base features
-[ ] channel name
+[-] channel name
     [ ] get channel name
         [ ] channel name
-        [ ] channel color
-    [ ] display channel name
+        [?] channel color
+    [?] display channel name
         [X] text
-        [ ] coloring
-[ ] fader for volume on each channel
+        [?] coloring
+[-] fader for volume on each channel
     [X] interactive faders
     [ ] label for fader
-    [ ] link fader to socket
+    [-] link fader to socket
         [ ] get value on load
-        [ ] set value when touch finished
-[ ] mute button on each channel
-    [ ] interactive button
-    [ ] pressing toggles on/off
+        [X] set value when touch finished
+[X] mute button on each channel
+    [X] interactive button
+    [X] pressing toggles on/off
 [ ] sends button for each channel
     [ ] interactive send button
     [ ] ui for sends
@@ -51,6 +51,7 @@
 [X] scroll by dragging
 [ ] panning?
 [ ] easter egg?
+[ ] allow orientation changes
 
 
 

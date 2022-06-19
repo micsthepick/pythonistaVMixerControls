@@ -49,6 +49,7 @@ class MyFader(ShapeNode):
         if self.dragging:
             self.dragging = False
             self.update_value(sy)
+            self.send_command()
             return True
         return False
         
@@ -128,16 +129,22 @@ class HorizontalScrollBar(ScrollBar):
         
 
 class RFader(MyFader):
-    def __init__(self, *args, init_value='0.0', **kwargs):
+    def __init__(self, id, action, *args, init_value='0.0', **kwargs):
         super().__init__(*args, **kwargs)
+        self.id = id
+        self.command = 'FDC:' + str(id)
+        self.action = action
         self.set_value(init_value)
+        
+    def send_command(self):
+        self.action(self.command + ',' + self.get_value())
     
     def get_value(self):
         value = self.get_raw_value()
         if value < 0.02:
             return 'INF'
         temp_val = value - 0.02
-        temp_val /= 98
+        temp_val /= 0.98
         temp_val *= 90
         temp_val -= 80
         return '{:.1f}'.format(temp_val)
@@ -148,7 +155,7 @@ class RFader(MyFader):
         f = float(val)
         f += 80
         f /= 90
-        f * 98
+        f * 0.98
         self.set_raw_value(f + 0.02)
 
 class MyButton(ShapeNode):
@@ -159,16 +166,33 @@ class MyButton(ShapeNode):
         self.action = action
     
     # called for EVERY touch, not just ones in the area of the button
-    def handle_touch_begin(self, pos, panel_pos):
-        if self.frame.contains_point(pos):
-            self.action(self.command)
-            self._reverseHeldAnimation()
-    
-    def handle_touch_move(self, pos, panel_pos):
-        self.handle_selection(pos)
-
     def handle_touch_ended(self, pos, panel_pos):
-        self.handle_selection(pos)
+        if not self.button_held:
+            return False
+        self.button_held = False
+        if not self.frame.contains_point(panel_pos):
+            return False        
+        self.action(self.command)
+        self._reverseHeldAnimation()
+        return True
+
+    # like above
+    def handle_touch_drag(self, pos, panel_pos):
+        if not self.button_held:
+            return False
+        if not self.frame.contains_point(panel_pos):
+            self._reverseHeldAnimation()
+        else:
+            self._runHeldAnimation()
+        return True
+
+    # like above
+    def handle_touch_begin(self, pos, panel_pos):
+        if not self.frame.contains_point(panel_pos):
+            return False
+        self.button_held = True
+        self._runHeldAnimation()
+        return True
 
     def _setHeldTrue(self):
         self.button_held = True
@@ -178,29 +202,13 @@ class MyButton(ShapeNode):
         
     def _runHeldAnimation(self):        
         self.run_action(
-            Action.sequence(
-                Action.scale_to(1.125, 0.05),
-                Action.call(self._setHeldTrue)
-            )
+            Action.scale_to(1.125, 0.05)
         )
     
     def _reverseHeldAnimation(self):
         self.run_action(
-                Action.sequence(
-                    Action.scale_to(1, 0.05),
-                    Action.call(self._setHeldFalse)
-                )
+            Action.scale_to(1, 0.05)
         )
-    
-    # like above comment
-    def handle_selection(self, pos):
-        if not self.is_visible:
-            return
-        if self.frame.contains_point(pos):
-            if not self.button_held:
-                self._runHeldAnimation()
-        elif self.button_held:
-            self._reverseHeldAnimation()
 
 class UnmuteButton(MyButton):
     def __init__(self, path, action, label, id, *args, **kwargs):
@@ -215,12 +223,24 @@ class MuteButton(MyButton):
 
 class Main(Scene):    
     def setup(self):
-        self.CHANNEL_COUNT = 25 # 16 out, 8 mtx, main
+        self.CHANNEL_COUNT = 13 # 8 out, 4 mtx, main
+        self.cmd = send_command_stub if DEBUG else create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
         self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
         self.panel_width = max(self.bounds.width, self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT)
-        self.root_node = Node(parent=self, position=(0, self.SCROLLBAR_HEIGHT))
+        self.background_color = '#111'
+        self.panel = ShapeNode(
+            Path.rect(0, 0, self.panel_width, self.panel_height),
+            self.background_color,
+            parent=self,
+            position=(
+                0,
+                self.SCROLLBAR_HEIGHT
+            ),
+            anchor_point = (0, 0)
+        )
+        #self.root_node = Node(parent=self, position=(0, self.SCROLLBAR_HEIGHT))
         self.scroll = HorizontalScrollBar(
             self.bounds.width,
             self.SCROLLBAR_HEIGHT,
@@ -229,15 +249,18 @@ class Main(Scene):
             parent=self,
             position=(0, self.SCROLLBAR_HEIGHT)
         )
-        self.panel = ShapeNode(
-            Path(0, 0, self.panel_height, self.panel_width),
-            parent=self.root_node
-        )
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
         for r in range(self.CHANNEL_COUNT):
+            channel_id = (
+                'AX'+str(r+1) if r < 8
+                else 'MTX'+str(r-7) if r < 12
+                else 'MAL'
+            )
             self.all_ui_elements.append(
                 RFader(
+                    channel_id,
+                    self.cmd,
                     parent=self.panel,
                     position=(
                         self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
@@ -245,8 +268,29 @@ class Main(Scene):
                     )
                 )
             )
-            channel_name = ('CH ' + str(r+1) if r < 16
-                else 'MTX ' + str(r - 15) if r < 24
+            self.all_ui_elements.append(
+                MuteButton(
+                        Path.rect(0, 0, 40, 40),
+                        self.cmd,
+                        'M',
+                        channel_id,
+                        parent=self.panel,
+                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 120)
+                    )
+            )
+            self.all_ui_elements.append(
+                UnmuteButton(
+                        Path.rect(0, 0, 40, 40),
+                        send_command_stub if DEBUG else create_socket_and_send,
+                        'U',
+                        channel_id,
+                        parent=self.panel,
+                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 180)
+                    )
+            )
+            channel_name = (
+                'OUT ' + str(r+1) if r < 8
+                else 'MTX ' + str(r - 7) if r < 12
                 else 'MAIN'
             )
             self.all_noninteractive_elems.append(
@@ -266,13 +310,13 @@ class Main(Scene):
     def mirror_scroll_pos(self):
         norm_pos = min(1,
             max(0,
-                -self.root_node.position.x / (self.panel_width - self.bounds.width)
+                -self.panel.position.x / (self.panel_width - self.bounds.width)
             )
         )
         self.scroll.set_value(norm_pos)
     
     def update_scroll_pos(self):
-        self.root_node.position = (
+        self.panel.position = (
             min(0, -self.scroll.get_value() * (self.panel_width - self.bounds.width)),
             self.SCROLLBAR_HEIGHT
         )
@@ -295,9 +339,9 @@ class Main(Scene):
             self.dragging = False
             bounded_pos = max(
                 -(self.panel_width - self.bounds.width), 
-                min(0, self.root_node.position.x)
+                min(0, self.panel.position.x)
             )
-            self.root_node.run_action(
+            self.panel.run_action(
                 Action.sequence(
                     Action.move_to(
                         bounded_pos,
@@ -326,7 +370,7 @@ class Main(Scene):
             return
         if self.dragging:
             dx = touch.location[0] - touch.prev_location[0]
-            self.root_node.run_action(Action.move_by(dx, 0, 0))
+            self.panel.run_action(Action.move_by(dx, 0, 0))
             self.mirror_scroll_pos()
             
     
