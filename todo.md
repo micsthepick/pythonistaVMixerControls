@@ -27,7 +27,11 @@
 ### base features
 [ ] channel name
     [ ] get channel name
+        [ ] channel name
+        [ ] channel color
     [ ] display channel name
+        [X] text
+        [ ] coloring
 [ ] fader for volume on each channel
     [X] interactive faders
     [ ] label for fader
@@ -44,7 +48,7 @@
         [ ] channels hooked up
 
 ### optional extras
-[ ] scroll by dragging
+[X] scroll by dragging
 [ ] panning?
 [ ] easter egg?
 

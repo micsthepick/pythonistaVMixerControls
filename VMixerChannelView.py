@@ -7,6 +7,19 @@ from ui import Path, ScrollView
 
 DEBUG = True
 
+class ChannelName(ShapeNode):
+    def __init__(self, x_size, color, name, *args, **kwargs):
+        # super is the label box
+        super().__init__(Path.rect(0, 0, x_size, 50), *args, **kwargs)
+        self.label_text = LabelNode(name, ('Monospace', 10), parent=self)
+        self.update_label(color, name)
+    
+    def update_label(self, color, name):
+        self.fill_color = {0:'#444'}[0]
+        self.stroke_color = {0:'#222'}[0]
+        self.name = name
+        self.label_text.text = name
+
 class MyFader(ShapeNode):
     def __init__(self, *args, **kwargs):
         self.length = 240
@@ -86,16 +99,20 @@ class HorizontalScrollBar(ScrollBar):
         
     def update_value(self, x):
         x_adjusted = min(max(0, x - self.knob_size/2), self.length - self.knob_size)
-        self.knob.position = (x_adjusted, 0)
         x_adjusted /= self.length - self.knob_size
         self.set_value(x_adjusted)
-
+        
+    def set_value(self, val):
+        super().set_value(val)
+        x_adjusted = val * (self.length - self.knob_size)
+        self.knob.position = (x_adjusted, 0)
+    
     def handle_touch_begin_safe(self, pos):
         cx, cy = self.knob.position
         x, y = pos
         if abs(x - cx - self.knob_size/2) < 50:
             self.dragging = True
-            #update_value(x)
+        return True
 
     def handle_touch_drag_safe(self, pos):
         if self.dragging:
@@ -199,7 +216,7 @@ class MuteButton(MyButton):
 class Main(Scene):    
     def setup(self):
         self.CHANNEL_COUNT = 25 # 16 out, 8 mtx, main
-        self.CHANNEL_SCREEN_WIDTH = 68
+        self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
         self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
         self.panel_width = max(self.bounds.width, self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT)
@@ -216,12 +233,43 @@ class Main(Scene):
             Path(0, 0, self.panel_height, self.panel_width),
             parent=self.root_node
         )
+        self.all_noninteractive_elems = []
         self.all_ui_elements = []
         for r in range(self.CHANNEL_COUNT):
             self.all_ui_elements.append(
-                RFader(parent=self.panel, position=(self.CHANNEL_SCREEN_WIDTH * (r + 0.5), self.panel_height / 2))
+                RFader(
+                    parent=self.panel,
+                    position=(
+                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                        self.panel_height / 2
+                    )
+                )
             )
-        
+            channel_name = ('CH ' + str(r+1) if r < 16
+                else 'MTX ' + str(r - 15) if r < 24
+                else 'MAIN'
+            )
+            self.all_noninteractive_elems.append(
+                ChannelName(
+                    self.CHANNEL_SCREEN_WIDTH * 7 / 8,
+                    0,
+                    channel_name,
+                    parent=self.panel,
+                    position=(
+                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                        self.panel_height - 35
+                    )
+                )
+            )
+            self.dragging = False
+            
+    def mirror_scroll_pos(self):
+        norm_pos = min(1,
+            max(0,
+                -self.root_node.position.x / (self.panel_width - self.bounds.width)
+            )
+        )
+        self.scroll.set_value(norm_pos)
     
     def update_scroll_pos(self):
         self.root_node.position = (
@@ -231,29 +279,72 @@ class Main(Scene):
     
     def touch_ended(self, touch):
         pos = touch.location
+        has_interacted = False
         if self.scroll.handle_touch_ended_safe(pos):
             self.update_scroll_pos()
-        pos_panel = self.panel.point_from_scene(pos)
-        for elem in self.all_ui_elements:
-            elem.handle_touch_ended(pos, pos_panel)
-    
-    def touch_moved(self, touch):
-        pos = touch.location
-        #if pos[1] >= self.bounds.height - SCROLLBAR_HEIGHT:
-        if self.scroll.handle_touch_drag_safe(pos):
-            self.update_scroll_pos()
-        pos_panel = self.panel.point_from_scene(pos)
-        for elem in self.all_ui_elements:
-            elem.handle_touch_drag(pos, pos_panel)
-    
-    def touch_began(self, touch):
-        pos = touch.location
-        if pos[1] <= self.SCROLLBAR_HEIGHT:
-            self.scroll.handle_touch_begin_safe(pos)
+            has_interacted = True
             return
         pos_panel = self.panel.point_from_scene(pos)
         for elem in self.all_ui_elements:
-            elem.handle_touch_begin(pos, pos_panel)
+            has_interacted = (has_interacted or
+                elem.handle_touch_ended(pos, pos_panel)
+            )
+        if has_interacted:
+            return True
+        if self.dragging:
+            self.dragging = False
+            bounded_pos = max(
+                -(self.panel_width - self.bounds.width), 
+                min(0, self.root_node.position.x)
+            )
+            self.root_node.run_action(
+                Action.sequence(
+                    Action.move_to(
+                        bounded_pos,
+                        self.SCROLLBAR_HEIGHT,
+                        0.5,
+                        TIMING_SINODIAL
+                    ),
+                    Action.call(self.mirror_scroll_pos)
+                )
+            )
+    
+    def touch_moved(self, touch):
+        pos = touch.location
+        has_interacted = False
+        #if pos[1] >= self.bounds.height - SCROLLBAR_HEIGHT:
+        if self.scroll.handle_touch_drag_safe(pos):
+            self.update_scroll_pos()
+            has_interacted = True
+            return
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            has_interacted = (has_interacted or
+                elem.handle_touch_drag(pos, pos_panel)
+            )
+        if has_interacted:
+            return
+        if self.dragging:
+            dx = touch.location[0] - touch.prev_location[0]
+            self.root_node.run_action(Action.move_by(dx, 0, 0))
+            self.mirror_scroll_pos()
+            
+    
+    def touch_began(self, touch):
+        pos = touch.location
+        has_interacted = False
+        if pos[1] <= self.SCROLLBAR_HEIGHT:
+            self.scroll.handle_touch_begin_safe(pos)
+            has_interacted = True
+            return
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            has_interacted = (has_interacted or
+                elem.handle_touch_begin(pos, pos_panel)
+            )
+        if has_interacted:
+           return
+        self.dragging = True
 
 
 class bcolors:
