@@ -1,5 +1,11 @@
 # todo
 
+## config
+[ ] config file
+    [ ] file based config
+    [ ] runtime config
+    [ ] optionally save config
+
 ## masterConsole
 
 ### base features
@@ -21,6 +27,7 @@
 ### base features
 [ ] channel name
     [ ] get channel name
+    [ ] display channel name
 [ ] fader for volume on each channel
     [X] interactive faders
     [ ] label for fader
@@ -37,6 +44,7 @@
         [ ] channels hooked up
 
 ### optional extras
+[ ] scroll by dragging
 [ ] panning?
 [ ] easter egg?
 
