@@ -3,7 +3,9 @@ import sys
 import time
 import random
 from scene import *
-from ui import Path, ScrollView
+from ui import Path
+from dialogs import form_dialog
+
 
 DEBUG = True
 
@@ -220,9 +222,29 @@ class MuteButton(MyButton):
         super().__init__(label, action, path, '#f33', '#400', *args, **kwargs)
         self.command = 'MUC:' + str(id) + ',1'
 
-
-class Main(Scene):    
-    def setup(self):
+class Main(Scene):
+    def __init__(self, *args, **kwargs):
+        try:
+            with open('.vmxproxypyipport', 'r') as f:
+                self.ip_address = f.readline().strip()
+                self.port = int(f.readline().strip())
+        except Exception:
+            data = form_dialog(
+                'Configure Proxy', 
+                [
+                    {'title': 'IP', 'type': 'text'},
+                    {'title': 'PORT', 'type': 'number'},
+                    {'title': 'remember', 'type': 'check'}
+                ]
+            )
+            self.ip_address = data['IP']
+            self.port = data['PORT']
+            if data['remember']:
+                with open('.vmxproxypyipport', 'w') as f:
+                    f.write(self.ip_address + '\n' + str(self.port))
+        super().__init__(*args, **kwargs)
+    
+    def setup(self):        
         self.CHANNEL_COUNT = 13 # 8 out, 4 mtx, main
         self.cmd = send_command_stub if DEBUG else create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
@@ -404,7 +426,7 @@ class bcolors:
 def send_command_stub(command):
     print(command)
 
-def create_socket_and_send(command):
+def create_socket_and_send(command, ip, port):
     #def sendAssertReply(command, expectedReply):
     #    reply = sendGetReply(command)
     #    assert reply == chr(2) + expectedReply + ";"
@@ -431,7 +453,7 @@ def create_socket_and_send(command):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     # Connect the socket to the port where the server is listening
-    server_address = ('localhost', 10000)
+    server_address = (ip, port)
     print('connecting to %s port %s' % server_address, file=sys.stderr)
     sock.connect(server_address)
     sock.settimeout(3)
