@@ -317,7 +317,7 @@ class Main(Scene):
                     channel_id,
                     self.cmd,
                     init_value=self.init_volumes[r],
-                    length=240 if self.bounds.height > 400 else 120,
+                    length=240 if self.bounds.height > 600 else 120,
                     parent=self.panel,
                     position=(
                         self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
