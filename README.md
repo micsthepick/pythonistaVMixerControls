@@ -12,4 +12,7 @@ simply git clone using stash's git client, or download each script individually
 
 ## usage
 
-run VMixerMasterConsole.py to Mute and Unmute channels, more features to come!
+VMixerMasterConsole.py is currently outdated, I should either fix it up or remove it.
+All it does is mute/unmute inputs, and it's not yet updated with the fixes necessary to work with the proxy correctly.
+
+run VMixerChannelView to manage output channels AUX1-8, MTX1-4 and Mains, setting mute, unmute and fader volume. Soon there will be the capability to set the volume for each input, for any given output.
