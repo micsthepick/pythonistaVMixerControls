@@ -274,43 +274,28 @@ class Main(Scene):
                     f.write(self.ip + '\n' + str(self.port))
         super().__init__(*args, **kwargs)
     
-    def setup(self):        
-        self.CHANNEL_COUNT = 13 # 8 out, 4 mtx, main
+    def setup(self):
+        self.ch_ids = (
+            ['AX'+str(v) for v in range(1, 9)]
+            + ['MX'+str(v) for v in range(1, 5)]
+            + ['MAL']
+        )
+        self.CHANNEL_COUNT = len(self.ch_ids) # 8 out, 4 mtx, main
         self.cmd = self.send_command_stub if DEBUG else self.create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
         self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
         self.panel_width = max(self.bounds.width, self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT)
         self.background_color = '#111'
-        self.panel = ShapeNode(
-            Path.rect(0, 0, self.panel_width, self.panel_height),
-            self.background_color,
-            parent=self,
-            position=(
-                0,
-                self.SCROLLBAR_HEIGHT
-            ),
-            anchor_point = (0, 0)
-        )
-        #self.root_node = Node(parent=self, position=(0, self.SCROLLBAR_HEIGHT))
-        self.scroll = HorizontalScrollBar(
-            self.bounds.width,
-            self.SCROLLBAR_HEIGHT,
-            '#AAA',
-            '#FFF',
-            parent=self,
-            position=(0, self.SCROLLBAR_HEIGHT)
-        )
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
-        self.get_channel_props()
+        self.get_channel_properties()
         self.create_ui_elements()
         self.dragging = False
-        
-    def get_channel_props(self):
+
+    def get_channel_properties(self):
         # names
-        self.ch_ids = ['AX'+str(v) for v in range(1, 9)] + ['MX'+str(v) for v in range(1, 5)]
-        self.channel_names = self.get_channel_names(self.ch_ids)
+        self.channel_names = self.get_channel_names(self.ch_ids[:-1])
         if self.channel_names is None:
             self.channel_names = [None]*(self.CHANNEL_COUNT - 1)
         else:
@@ -321,7 +306,6 @@ class Main(Scene):
             ]
         self.channel_names.append(None)
         # volumes
-        self.ch_ids.append('MAL')
         self.init_volumes = self.get_channel_volumes(self.ch_ids)
         if self.init_volumes is None:
             self.init_volumes = ['0.0']*self.CHANNEL_COUNT
@@ -333,6 +317,27 @@ class Main(Scene):
             ]
         
     def create_ui_elements(self):
+        # main panel
+        self.panel = ShapeNode(
+            Path.rect(0, 0, self.panel_width, self.panel_height),
+            self.background_color,
+            parent=self,
+            position=(
+                0,
+                self.SCROLLBAR_HEIGHT
+            ),
+            anchor_point=(0, 0)
+        )
+        # main scroll bar
+        self.scroll = HorizontalScrollBar(
+            self.bounds.width,
+            self.SCROLLBAR_HEIGHT,
+            '#AAA',
+            '#FFF',
+            parent=self,
+            position=(0, self.SCROLLBAR_HEIGHT)
+        )
+        # channel elements
         for r in range(self.CHANNEL_COUNT):
             channel_id = (
                 'AX'+str(r+1) if r < 8
@@ -402,7 +407,7 @@ class Main(Scene):
             )
             
     def show_sends(self, ch_id):
-        sends_scene = SendsScene(self)
+        sends_scene = SendsScene(self, ch_id)
         self.present_modal_scene(sends_scene)
             
     def mirror_scroll_pos(self):
@@ -470,7 +475,6 @@ class Main(Scene):
             dx = touch.location[0] - touch.prev_location[0]
             self.panel.run_action(Action.move_by(dx, 0, 0))
             self.mirror_scroll_pos()
-            
     
     def touch_began(self, touch):
         pos = touch.location
@@ -551,14 +555,181 @@ class Main(Scene):
         return reply
 
 class SendsScene(Scene):
-    def __init__(self, main_scene, *args, **kwargs):
+    def __init__(self, parent_scene, ch_id, *args, **kwargs):
+        self.parent_scene = parent_scene
+        self.out_channel = ch_id
         super().__init__(*args, **kwargs)
     
     def setup(self):
-        pass
+        self.ch_ids = ['I'+str(i) for i in range(1, 33)]
+        self.ch_count = len(self.ch_ids)
+        self.panel_width = max(
+            self.bounds.width,
+            self.parent_scene.CHANNEL_SCREEN_WIDTH * self.ch_count
+        )
+        self.background_color = self.parent_scene.background_color
+        self.dragging = False
+        self.all_noninteractive_elems = []
+        self.all_ui_elements = []
+        self.get_channel_properties()
+        self.create_ui_elements()
+        
+    def get_channel_properties(self):
+        # names
+        self.channel_names = self.parent_scene.get_channel_names(self.ch_ids)
+        if self.channel_names is None:
+            self.channel_names = ['IN '+str(v) for v in range(1, 33)]
+        else:
+            self.channel_names = [
+                v.split('"')[1] if v.count('"') == 2
+                else 'IN '+str(i+1)
+                for i, v in enumerate(self.channel_names)
+            ]
+        # volumes
+        self.init_volumes = self.parent_scene.get_channel_volumes(self.ch_ids)
+        if self.init_volumes is None:
+            self.init_volumes = ['0.0']*self.CHANNEL_COUNT
+        else:
+            self.init_volumes = [
+                v.split(',')[1] if v.count(',') == 1
+                else '0.0'
+                for v in self.init_volumes
+            ]
+    
+    def create_ui_elements(self):
+        # main panel
+        self.fake_panel = ShapeNode(
+            Path.rect(0, 0, self.bounds.width, self.parent_scene.panel_height),
+            self.background_color,
+            parent=self,
+            position=(
+                0,
+                self.parent_scene.SCROLLBAR_HEIGHT
+            ),
+            anchor_point=(0, 0)
+        )
+        self.panel = Node(
+            position=(0, self.parent_scene.SCROLLBAR_HEIGHT),
+            parent=self
+        )
+        '''ShapeNode(
+            Path.rect(0, 0, self.panel_width, self.parent_scene.panel_height),
+            self.background_color,
+            parent=self,
+            position=(
+                0,
+                self.parent_scene.SCROLLBAR_HEIGHT
+            ),
+            anchor_point=(0, 0)
+        )'''
+        # scroll bar
+        self.scroll = HorizontalScrollBar(
+            self.bounds.width,
+            self.parent_scene.SCROLLBAR_HEIGHT,
+            '#AAA',
+            '#FFF',
+            parent=self,
+            position=(0, self.parent_scene.SCROLLBAR_HEIGHT)
+        )
+        # close button - requires custom handling in touch handler because it floats
+        self.close_button = MyButton(
+            'X', lambda x:self.dismiss_modal_scene(),
+            Path.rect(0, 0, 50, 50),
+            '#F33',
+            '#400',
+            parent=self,
+            position=(30, self.bounds.height-30)
+        )
+        self.close_button.command = None;
+        
+    
+    def mirror_scroll_pos(self):
+        norm_pos = min(1,
+            max(0,
+                -self.panel.position.x / (self.panel_width - self.bounds.width)
+            )
+        )
+        self.scroll.set_value(norm_pos)
+    
+    def update_scroll_pos(self):
+        self.panel.position = (
+            min(0, -self.scroll.get_value() * (self.panel_width - self.bounds.width)),
+            self.parent_scene.SCROLLBAR_HEIGHT
+        )
     
     def touch_ended(self, touch):
-        self.dismiss_modal_scene()
+        pos = touch.location
+        has_interacted = self.close_button.handle_touch_ended(pos, pos)
+        if has_interacted:
+            return
+        if self.scroll.handle_touch_ended_safe(pos):
+            self.update_scroll_pos()
+            has_interacted = True
+            return
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            has_interacted = (has_interacted or
+                elem.handle_touch_ended(pos, pos_panel)
+            )
+        if has_interacted:
+            return True
+        if self.dragging:
+            self.dragging = False
+            bounded_pos = max(
+                -(self.panel_width - self.bounds.width), 
+                min(0, self.panel.position.x)
+            )
+            self.panel.run_action(
+                Action.sequence(
+                    Action.move_to(
+                        bounded_pos,
+                        self.parent_scene.SCROLLBAR_HEIGHT,
+                        0.5,
+                        TIMING_SINODIAL
+                    ),
+                    Action.call(self.mirror_scroll_pos)
+                )
+            )
+    
+    def touch_moved(self, touch):
+        pos = touch.location
+        has_interacted = self.close_button.handle_touch_drag(pos, pos)
+        if has_interacted:
+            return
+        #if pos[1] >= self.bounds.height - SCROLLBAR_HEIGHT:
+        if self.scroll.handle_touch_drag_safe(pos):
+            self.update_scroll_pos()
+            has_interacted = True
+            return
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            has_interacted = (has_interacted or
+                elem.handle_touch_drag(pos, pos_panel)
+            )
+        if has_interacted:
+            return
+        if self.dragging:
+            dx = touch.location[0] - touch.prev_location[0]
+            self.panel.run_action(Action.move_by(dx, 0, 0))
+            self.mirror_scroll_pos()
+    
+    def touch_began(self, touch):
+        pos = touch.location
+        has_interacted = self.close_button.handle_touch_begin(pos, pos)
+        if has_interacted:
+            return
+        if pos[1] <= self.parent_scene.SCROLLBAR_HEIGHT:
+            self.scroll.handle_touch_begin_safe(pos)
+            has_interacted = True
+            return
+        pos_panel = self.panel.point_from_scene(pos)
+        for elem in self.all_ui_elements:
+            has_interacted = (has_interacted or
+                elem.handle_touch_begin(pos, pos_panel)
+            )
+        if has_interacted:
+           return
+        self.dragging = True
 
 class bcolors:
     HEADER = '\033[95m'
