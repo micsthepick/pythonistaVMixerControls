@@ -41,19 +41,20 @@
 [X] mute button on each channel
     [X] interactive button
     [X] pressing toggles on/off
-[ ] sends button for each channel
+[X] sends button for each channel
     [X] interactive send button
-    [ ] ui for sends
-        [ ] channels display
-        [ ] channels hooked up
+    [X] ui for sends
+        [X] channels display
+        [X] channels hooked up
 [X] configuration modal
-[ ] disable DEBUG and print statments
+[X] disable DEBUG and print statments
 
 ### optional extras
 [X] scroll by dragging
 [ ] panning?
 [ ] easter egg?
 [ ] allow orientation changes
+[ ] layout improvments for small devices
 
 
 

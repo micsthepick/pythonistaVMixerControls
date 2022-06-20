@@ -100,7 +100,7 @@ class RFader(MyFader):
         self.set_value(init_value)
         
     def send_command(self):
-        self.action(self.command + ',' + self.get_value())
+        self.action(self.command + ',' + self.get_value() + ',C')
     
     def get_value(self):
         value = self.get_raw_value()
@@ -117,6 +117,7 @@ class RFader(MyFader):
         self.label.set_text(value)
         
     def set_value(self, val):
+        self.label.set_text(val)
         if val.lower() == 'inf':
             self.set_raw_value(0.0)
             return
@@ -125,7 +126,11 @@ class RFader(MyFader):
         f /= 90
         f * 0.98
         self.set_raw_value(f + 0.02)
-        self.label.set_text(val)
+
+class RSendFader(RFader):
+    def __init__(self, alt_command, send_id, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.command = alt_command + str(self.id) + ',' + send_id
 
 class ScrollBar(ShapeNode):
     def __init__(self, knob_shape, knob_color, *args, initial_value=1.0, **kwargs):
@@ -338,11 +343,26 @@ class Main(Scene):
             position=(0, self.SCROLLBAR_HEIGHT)
         )
         # channel elements
-        for r in range(self.CHANNEL_COUNT):
-            channel_id = (
-                'AX'+str(r+1) if r < 8
-                else 'MX'+str(r-7) if r < 12
-                else 'MAL'
+        for r, channel_id in enumerate(self.ch_ids):
+            # name tag
+            channel_name = self.channel_names[r]
+            if channel_name is None:
+                channel_name = (
+                    'OUT ' + str(r+1) if r < 8
+                    else 'MTX ' + str(r - 7) if r < 12
+                    else 'MAIN'
+                )
+            self.all_noninteractive_elems.append(
+                ChannelName(
+                    self.CHANNEL_SCREEN_WIDTH * 7 / 8,
+                    0,
+                    channel_name,
+                    parent=self.panel,
+                    position=(
+                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                        self.panel_height - 35
+                    )
+                )
             )
             self.all_ui_elements.append(
                 RFader(
@@ -384,25 +404,6 @@ class Main(Scene):
                     channel_id,
                     parent=self.panel,
                     position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, 80)
-                )
-            )
-            channel_name = self.channel_names[r]
-            if channel_name is None:
-                channel_name = (
-                    'OUT ' + str(r+1) if r < 8
-                    else 'MTX ' + str(r - 7) if r < 12
-                    else 'MAIN'
-                )
-            self.all_noninteractive_elems.append(
-                ChannelName(
-                    self.CHANNEL_SCREEN_WIDTH * 7 / 8,
-                    0,
-                    channel_name,
-                    parent=self.panel,
-                    position=(
-                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.panel_height - 35
-                    )
                 )
             )
             
@@ -568,6 +569,7 @@ class SendsScene(Scene):
             self.parent_scene.CHANNEL_SCREEN_WIDTH * self.ch_count
         )
         self.background_color = self.parent_scene.background_color
+        self.cmd = self.parent_scene.cmd
         self.dragging = False
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
@@ -612,16 +614,6 @@ class SendsScene(Scene):
             position=(0, self.parent_scene.SCROLLBAR_HEIGHT),
             parent=self
         )
-        '''ShapeNode(
-            Path.rect(0, 0, self.panel_width, self.parent_scene.panel_height),
-            self.background_color,
-            parent=self,
-            position=(
-                0,
-                self.parent_scene.SCROLLBAR_HEIGHT
-            ),
-            anchor_point=(0, 0)
-        )'''
         # scroll bar
         self.scroll = HorizontalScrollBar(
             self.bounds.width,
@@ -641,6 +633,39 @@ class SendsScene(Scene):
             position=(30, self.bounds.height-30)
         )
         self.close_button.command = None;
+        # channel elements
+        for r, channel_id in enumerate(self.ch_ids):
+            # name tag
+            channel_name = self.channel_names[r]
+            self.all_noninteractive_elems.append(
+                ChannelName(
+                    self.parent_scene.CHANNEL_SCREEN_WIDTH * 7 / 8,
+                    0,
+                    channel_name,
+                    parent=self.panel,
+                    position=(
+                        self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                        self.parent_scene.panel_height - 100
+                    )
+                )
+            )
+            self.all_ui_elements.append(
+                RSendFader(
+                    'FDC:' if self.out_channel == 'MAL' else
+                    'AXC:' if self.out_channel[:2] == 'AX' else
+                    'MXC:',
+                    self.out_channel,
+                    channel_id,
+                    self.cmd,
+                    init_value=self.init_volumes[r],
+                    length=240 if self.bounds.height > 600 else 120,
+                    parent=self.panel,
+                    position=(
+                        self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                        self.parent_scene.panel_height / 2
+                    )
+                )
+            )
         
     
     def mirror_scroll_pos(self):
