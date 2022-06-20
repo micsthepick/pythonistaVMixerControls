@@ -7,7 +7,7 @@ from ui import Path
 from dialogs import form_dialog
 
 
-DEBUG = True
+DEBUG = False
 
 class ChannelName(ShapeNode):
     def __init__(self, x_size, color, name, *args, **kwargs):
@@ -73,10 +73,6 @@ class MyFader(ShapeNode):
         y_adjusted = min(max(0, y + self.length / 2 - self.knob_size), self.length - self.knob_size)
         y_adjusted /= self.length - self.knob_size
         self.set_raw_value(y_adjusted)
-        try:
-            self.label.set_text(self.get_value())
-        except AttributeError:
-            pass
 
     def update_knob_pos(self):
         y = (self.value - 0.5) * (self.length - self.knob_size)
@@ -179,6 +175,7 @@ class RFader(MyFader):
         f /= 90
         f * 0.98
         self.set_raw_value(f + 0.02)
+        self.label.set_text(self.get_value())
 
 class MyButton(ShapeNode):
     def __init__(self, label, action, *args, **kwargs):
@@ -293,23 +290,31 @@ class Main(Scene):
         )
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
-        self.ch_ids = ['AX'+str(v) for v in range(1, 9)] + ['MTX'+str(v) for v in range(1, 5)]
+        self.ch_ids = ['AX'+str(v) for v in range(1, 9)] + ['MX'+str(v) for v in range(1, 5)]
         self.channel_names = self.get_channel_names(self.ch_ids)
         if self.channel_names is None:
             self.channel_names = [None]*(self.CHANNEL_COUNT - 1)
         else:
-            self.channel_names = [v.split('"')[1] for v in self.channel_names]
+            self.channel_names = [
+                v.split('"')[1] if v.count('"') == 2
+                else None
+                for v in self.channel_names
+            ]
         self.channel_names.append(None)
         self.ch_ids.append('MAL')
         self.init_volumes = self.get_channel_volumes(self.ch_ids)
         if self.init_volumes is None:
             self.init_volumes = ['0.0']*self.CHANNEL_COUNT
         else:
-            self.init_volumes = [v.split(',')[1] for v in self.init_volumes]
+            self.init_volumes = [
+                v.split(',')[1] if v.count(',') == 1
+                else '0.0'
+                for v in self.init_volumes
+            ]
         for r in range(self.CHANNEL_COUNT):
             channel_id = (
                 'AX'+str(r+1) if r < 8
-                else 'MTX'+str(r-7) if r < 12
+                else 'MX'+str(r-7) if r < 12
                 else 'MAL'
             )
             self.all_ui_elements.append(
@@ -459,7 +464,7 @@ class Main(Scene):
         results = query(chids)
         if not isinstance(results, str):
             return None
-        return results.split('&')
+        return results.split(';')[:-1]
 
     def get_channel_volume_query(self, chid):
         if isinstance(chid, list):
@@ -476,19 +481,20 @@ class Main(Scene):
     
     def create_socket_and_send(self, command):
         def sendGetReply(command):
-            reply = ''
+            expected_results = command.count('&') + 1
+            reply = b''
             try:
                 message = chr(2) + command + ';'
-                sock.sendall(message)
-                while len(reply) == 0 or reply[-1] != ';':
+                sock.sendall(bytes(message, 'ascii'))
+                while reply.count(b';') < expected_results:
                     reply += sock.recv(64)
-        
             except socket.timeout:
                 reply = None
         
             if reply:
-                reply = reply.replace(chr(6), "<ack>")
-                reply = reply.replace(chr(2), "<stx>")
+                reply = reply.replace(bytes(chr(6), 'ascii'), b"<ack>")
+                reply = reply.replace(bytes(chr(2), 'ascii'), b"<stx>")
+                reply = str(reply, 'ascii')
         
             return reply
     
@@ -497,15 +503,15 @@ class Main(Scene):
         
         # Connect the socket to the port where the server is listening
         server_address = (self.ip, self.port)
-        print('connecting to %s port %s' % server_address, file=sys.stderr)
+        #print('connecting to %s port %s' % server_address, file=sys.stderr)
         sock.connect(server_address)
-        sock.settimeout(3)
+        sock.settimeout(5)
         
         reply = sendGetReply(command)
         
-        print(reply)
+        #print(reply)
         
-        print('closing socket', file=sys.stderr)
+        #print('closing socket', file=sys.stderr)
         sock.close()
         
         return reply
@@ -519,50 +525,6 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
-
-'''
-reply_dict = {}
-for loop in range(100, 0, -1):
-
-    for i in range(32):
-        inputID = "I" + str(i + 1)
-        command = ""
-        command += "CNq:" + inputID + "&"
-        command += "PIq:" + inputID + "&"
-        command += "MUq:" + inputID + "&"
-        command += "FDq:" + inputID
-
-        reply = sendGetReply(command)
-        expectedReply = reply_dict.get(inputID, "")
-        if expectedReply:
-            assert reply == expectedReply
-            sys.stdout.write('.')
-            sys.stdout.flush()
-        else:
-            reply_dict[inputID] = reply
-            print(bcolors.OKBLUE + command + bcolors.ENDC)
-            print(bcolors.OKGREEN + reply + bcolors.ENDC)
-
-    command = ""
-    for i in range(8):
-        inputID = "AX" + str(i + 1)
-        command += "CNq:" + inputID + "&"
-    command += "SCq"
-    reply = sendGetReply(command)
-    expectedReply = reply_dict.get(inputID, "")
-    if expectedReply:
-        assert reply == expectedReply
-        sys.stdout.write('.')
-        sys.stdout.flush()
-    else:
-        reply_dict[inputID] = reply
-        print(bcolors.OKBLUE + command + bcolors.ENDC)
-        print(bcolors.OKGREEN + reply + bcolors.ENDC)
-
-    delay = 5 + random.random()
-    print("  %gs [%d]" % (delay, loop))
-    time.sleep(delay)
-'''
 
 if __name__ == '__main__':
     run(Main())
