@@ -25,7 +25,7 @@
 [X] move slider control sensing region to same location as it got moved graphically (oops)
 
 ### base features
-[-] channel name
+[?] channel name
     [ ] get channel name
         [ ] channel name
         [?] channel color
@@ -34,7 +34,7 @@
         [?] coloring
 [-] fader for volume on each channel
     [X] interactive faders
-    [ ] label for fader
+    [X] label for fader
     [-] link fader to socket
         [ ] get value on load
         [X] set value when touch finished
@@ -46,6 +46,8 @@
     [ ] ui for sends
         [ ] channels display
         [ ] channels hooked up
+[X] configuration modal
+[ ] disable DEBUG
 
 ### optional extras
 [X] scroll by dragging

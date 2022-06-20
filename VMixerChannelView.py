@@ -21,6 +21,20 @@ class ChannelName(ShapeNode):
         self.stroke_color = {0:'#222'}[0]
         self.name = name
         self.label_text.text = name
+        
+class DynamicLabel(ShapeNode):
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            Path.rect(0, 0, 60, 20),
+            '#444',
+            '#222',
+             *args,
+             **kwargs
+        )
+        self.label_text = LabelNode('0.0 db', ('Monospace', 10), parent=self)
+    
+    def set_text(self, text_value):
+        self.label_text.text = text_value + ' db'
 
 class MyFader(ShapeNode):
     def __init__(self, *args, **kwargs):
@@ -59,6 +73,10 @@ class MyFader(ShapeNode):
         y_adjusted = min(max(0, y + self.length / 2 - self.knob_size), self.length - self.knob_size)
         y_adjusted /= self.length - self.knob_size
         self.set_raw_value(y_adjusted)
+        try:
+            self.label.set_text(self.get_value())
+        except AttributeError:
+            pass
 
     def update_knob_pos(self):
         y = (self.value - 0.5) * (self.length - self.knob_size)
@@ -133,6 +151,8 @@ class HorizontalScrollBar(ScrollBar):
 class RFader(MyFader):
     def __init__(self, id, action, *args, init_value='0.0', **kwargs):
         super().__init__(*args, **kwargs)
+        self.label = DynamicLabel(parent=self)
+        self.label.position = (0, - self.path.bounds.height / 2 - 40)
         self.id = id
         self.command = 'FDC:' + str(id)
         self.action = action
@@ -464,6 +484,8 @@ def create_socket_and_send(command, ip, port):
     
     print('closing socket', file=sys.stderr)
     sock.close()
+    
+    return reply
 
 '''
 reply_dict = {}
