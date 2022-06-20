@@ -246,6 +246,11 @@ class MuteButton(MyButton):
     def __init__(self, path, action, label, id, *args, **kwargs):
         super().__init__(label, action, path, '#f33', '#400', *args, **kwargs)
         self.command = 'MUC:' + str(id) + ',1'
+        
+class SendsButton(MyButton):
+    def __init__(self, action, path, id, *args, **kwargs):
+        super().__init__('SENDS', action, path, '#f83', '#420', *args, **kwargs)
+        self.command = id
 
 class Main(Scene):
     def __init__(self, *args, **kwargs):
@@ -298,6 +303,12 @@ class Main(Scene):
         )
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
+        self.get_channel_props()
+        self.create_ui_elements()
+        self.dragging = False
+        
+    def get_channel_props(self):
+        # names
         self.ch_ids = ['AX'+str(v) for v in range(1, 9)] + ['MX'+str(v) for v in range(1, 5)]
         self.channel_names = self.get_channel_names(self.ch_ids)
         if self.channel_names is None:
@@ -309,6 +320,7 @@ class Main(Scene):
                 for v in self.channel_names
             ]
         self.channel_names.append(None)
+        # volumes
         self.ch_ids.append('MAL')
         self.init_volumes = self.get_channel_volumes(self.ch_ids)
         if self.init_volumes is None:
@@ -319,6 +331,8 @@ class Main(Scene):
                 else '0.0'
                 for v in self.init_volumes
             ]
+        
+    def create_ui_elements(self):
         for r in range(self.CHANNEL_COUNT):
             channel_id = (
                 'AX'+str(r+1) if r < 8
@@ -340,23 +354,32 @@ class Main(Scene):
             )
             self.all_ui_elements.append(
                 MuteButton(
-                        Path.rect(0, 0, 40, 40),
-                        self.cmd,
-                        'M',
-                        channel_id,
-                        parent=self.panel,
-                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 120)
-                    )
+                    Path.rect(0, 0, 60, 60),
+                    self.cmd,
+                    'M',
+                    channel_id,
+                    parent=self.panel,
+                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 110)
+                )
             )
             self.all_ui_elements.append(
                 UnmuteButton(
-                        Path.rect(0, 0, 40, 40),
-                        self.cmd,
-                        'U',
-                        channel_id,
-                        parent=self.panel,
-                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 180)
-                    )
+                    Path.rect(0, 0, 60, 60),
+                    self.cmd,
+                    'U',
+                    channel_id,
+                    parent=self.panel,
+                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 190)
+                )
+            )
+            self.all_ui_elements.append(
+                SendsButton(
+                    self.show_sends,
+                    Path.rect(0, 0, 80, 60),
+                    channel_id,
+                    parent=self.panel,
+                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, 80)
+                )
             )
             channel_name = self.channel_names[r]
             if channel_name is None:
@@ -377,7 +400,10 @@ class Main(Scene):
                     )
                 )
             )
-            self.dragging = False
+            
+    def show_sends(self, ch_id):
+        sends_scene = SendsScene(self)
+        self.present_modal_scene(sends_scene)
             
     def mirror_scroll_pos(self):
         norm_pos = min(1,
@@ -523,6 +549,16 @@ class Main(Scene):
         sock.close()
         
         return reply
+
+class SendsScene(Scene):
+    def __init__(self, main_scene, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+    
+    def setup(self):
+        pass
+    
+    def touch_ended(self, touch):
+        self.dismiss_modal_scene()
 
 class bcolors:
     HEADER = '\033[95m'

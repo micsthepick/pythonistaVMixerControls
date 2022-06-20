@@ -42,7 +42,7 @@
     [X] interactive button
     [X] pressing toggles on/off
 [ ] sends button for each channel
-    [ ] interactive send button
+    [X] interactive send button
     [ ] ui for sends
         [ ] channels display
         [ ] channels hooked up
