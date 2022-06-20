@@ -257,7 +257,7 @@ class Main(Scene):
                     {'title': 'remember', 'type': 'check'}
                 ]
             )
-            self.ip_address = data['IP']
+            self.ip = data['IP']
             self.port = data['PORT']
             if data['remember']:
                 with open('.vmxproxypyipport', 'w') as f:
@@ -266,7 +266,7 @@ class Main(Scene):
     
     def setup(self):        
         self.CHANNEL_COUNT = 13 # 8 out, 4 mtx, main
-        self.cmd = send_command_stub if DEBUG else create_socket_and_send
+        self.cmd = self.send_command_stub if DEBUG else self.create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
         self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
@@ -293,6 +293,19 @@ class Main(Scene):
         )
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
+        self.ch_ids = ['AX'+str(v) for v in range(1, 9)] + ['MTX'+str(v) for v in range(1, 5)]
+        self.channel_names = self.get_channel_names(self.ch_ids)
+        if self.channel_names is None:
+            self.channel_names = [None]*(self.CHANNEL_COUNT - 1)
+        else:
+            self.channel_names = [v.split('"')[1] for v in self.channel_names]
+        self.channel_names.append(None)
+        self.ch_ids.append('MAL')
+        self.init_volumes = self.get_channel_volumes(self.ch_ids)
+        if self.init_volumes is None:
+            self.init_volumes = ['0.0']*self.CHANNEL_COUNT
+        else:
+            self.init_volumes = [v.split(',')[1] for v in self.init_volumes]
         for r in range(self.CHANNEL_COUNT):
             channel_id = (
                 'AX'+str(r+1) if r < 8
@@ -323,18 +336,20 @@ class Main(Scene):
             self.all_ui_elements.append(
                 UnmuteButton(
                         Path.rect(0, 0, 40, 40),
-                        send_command_stub if DEBUG else create_socket_and_send,
+                        self.cmd,
                         'U',
                         channel_id,
                         parent=self.panel,
                         position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 180)
                     )
             )
-            channel_name = (
-                'OUT ' + str(r+1) if r < 8
-                else 'MTX ' + str(r - 7) if r < 12
-                else 'MAIN'
-            )
+            channel_name = self.channel_names[r]
+            if channel_name is None:
+                channel_name = (
+                    'OUT ' + str(r+1) if r < 8
+                    else 'MTX ' + str(r - 7) if r < 12
+                    else 'MAIN'
+                )
             self.all_noninteractive_elems.append(
                 ChannelName(
                     self.CHANNEL_SCREEN_WIDTH * 7 / 8,
@@ -431,7 +446,67 @@ class Main(Scene):
         if has_interacted:
            return
         self.dragging = True
+        
+    def get_channel_volumes(self, chids):
+        return self.get_multiple_results(chids, self.get_channel_volume_query)
+        
+    def get_channel_names(self, chids):
+        return self.get_multiple_results(chids, self.get_channel_name_query)
+        
+    def get_multiple_results(self, chids, query):
+        results = query(chids)
+        if not isinstance(results, str):
+            return None
+        return results.split('&')
 
+    def get_channel_volume_query(self, chid):
+        if isinstance(chid, list):
+            chid = '&FDQ:'.join(chid)
+        return self.cmd('FDQ:' + chid)
+
+    def get_channel_name_query(self, chid):
+        if isinstance(chid, list):
+            chid = '&CNQ:'.join(chid)
+        return self.cmd('CNQ:' + chid)
+    
+    def send_command_stub(self, command):
+        print(command)
+    
+    def create_socket_and_send(self, command):
+        def sendGetReply(command):
+            reply = ''
+            try:
+                message = chr(2) + command + ';'
+                sock.sendall(message)
+                while len(reply) == 0 or reply[-1] != ';':
+                    reply += sock.recv(64)
+        
+            except socket.timeout:
+                reply = None
+        
+            if reply:
+                reply = reply.replace(chr(6), "<ack>")
+                reply = reply.replace(chr(2), "<stx>")
+        
+            return reply
+    
+        # Create a TCP/IP socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        
+        # Connect the socket to the port where the server is listening
+        server_address = (self.ip, self.port)
+        print('connecting to %s port %s' % server_address, file=sys.stderr)
+        sock.connect(server_address)
+        sock.settimeout(3)
+        
+        reply = sendGetReply(command)
+        
+        print(reply)
+        
+        print('closing socket', file=sys.stderr)
+        sock.close()
+        
+        return reply
 
 class bcolors:
     HEADER = '\033[95m'
@@ -442,50 +517,6 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
-
-def send_command_stub(command):
-    print(command)
-
-def create_socket_and_send(command, ip, port):
-    #def sendAssertReply(command, expectedReply):
-    #    reply = sendGetReply(command)
-    #    assert reply == chr(2) + expectedReply + ";"
-    
-    
-    def sendGetReply(command):
-        reply = ''
-        try:
-            message = chr(2) + command + ';'
-            sock.sendall(message)
-            while len(reply) == 0 or reply[-1] != ';':
-                reply += sock.recv(64)
-    
-        except socket.timeout:
-            reply = None
-    
-        if reply:
-            reply = reply.replace(chr(6), "<ack>")
-            reply = reply.replace(chr(2), "<stx>")
-    
-        return reply
-    
-    # Create a TCP/IP socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
-    # Connect the socket to the port where the server is listening
-    server_address = (ip, port)
-    print('connecting to %s port %s' % server_address, file=sys.stderr)
-    sock.connect(server_address)
-    sock.settimeout(3)
-    
-    reply = sendGetReply(command)
-    
-    print(reply)
-    
-    print('closing socket', file=sys.stderr)
-    sock.close()
-    
-    return reply
 
 '''
 reply_dict = {}
