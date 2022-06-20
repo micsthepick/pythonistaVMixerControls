@@ -486,7 +486,7 @@ class Main(Scene):
             try:
                 message = chr(2) + command + ';'
                 sock.sendall(bytes(message, 'ascii'))
-                while reply.count(b';') < expected_results:
+                while reply.count(b';') < expected_results and reply[-1:] != bytes(chr(6), 'ascii'):
                     reply += sock.recv(64)
             except socket.timeout:
                 reply = None
