@@ -48,7 +48,7 @@ class MyFader(ShapeNode):
         
     def handle_touch_begin(self, pos, panel_pos):
         kx, ky = self.knob.point_from_scene(pos)
-        if abs(kx) > 10:
+        if abs(kx) > 25:
             return
         if abs(ky) > 25:
             return
