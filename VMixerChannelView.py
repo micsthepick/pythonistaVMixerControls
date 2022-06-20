@@ -246,7 +246,7 @@ class Main(Scene):
     def __init__(self, *args, **kwargs):
         try:
             with open('.vmxproxypyipport', 'r') as f:
-                self.ip_address = f.readline().strip()
+                self.ip = f.readline().strip()
                 self.port = int(f.readline().strip())
         except Exception:
             data = form_dialog(
@@ -261,7 +261,7 @@ class Main(Scene):
             self.port = data['PORT']
             if data['remember']:
                 with open('.vmxproxypyipport', 'w') as f:
-                    f.write(self.ip_address + '\n' + str(self.port))
+                    f.write(self.ip + '\n' + str(self.port))
         super().__init__(*args, **kwargs)
     
     def setup(self):        
