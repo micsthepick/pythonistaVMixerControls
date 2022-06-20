@@ -37,8 +37,8 @@ class DynamicLabel(ShapeNode):
         self.label_text.text = text_value + ' db'
 
 class MyFader(ShapeNode):
-    def __init__(self, *args, **kwargs):
-        self.length = 240
+    def __init__(self, *args, length=240, **kwargs):
+        self.length = length
         super().__init__(Path.rounded_rect(0, 0, 20, self.length, 10), '#444', *args, **kwargs)
         self.knob = ShapeNode(Path.oval(0, 0, 25, 25), '#fefefe', parent=self)
         # value ranges from 0 to 1, at least for now
@@ -149,8 +149,8 @@ class HorizontalScrollBar(ScrollBar):
         
 
 class RFader(MyFader):
-    def __init__(self, id, action, *args, init_value='0.0', **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, id, action, *args, init_value='0.0', length=240, **kwargs):
+        super().__init__(*args, length=length, **kwargs)
         self.label = DynamicLabel(parent=self)
         self.label.position = (0, - self.path.bounds.height / 2 - 40)
         self.id = id
@@ -316,6 +316,8 @@ class Main(Scene):
                 RFader(
                     channel_id,
                     self.cmd,
+                    init_value=self.init_volumes[r],
+                    length=240 if self.bounds.height > 400 else 120,
                     parent=self.panel,
                     position=(
                         self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
