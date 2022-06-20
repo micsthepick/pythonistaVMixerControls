@@ -1,10 +1,10 @@
 # todo
 
 ## config
-[ ] config file
-    [ ] file based config
-    [ ] runtime config
-    [ ] optionally save config
+[X] config file
+    [X] file based config
+    [X] runtime config
+    [X] optionally save config
 
 ## masterConsole
 
