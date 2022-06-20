@@ -13,7 +13,7 @@ class ChannelName(ShapeNode):
     def __init__(self, x_size, color, name, *args, **kwargs):
         # super is the label box
         super().__init__(Path.rect(0, 0, x_size, 50), *args, **kwargs)
-        self.label_text = LabelNode(name, ('Monospace', 10), parent=self)
+        self.label_text = LabelNode(name, ('Monospace', 20), parent=self)
         self.update_label(color, name)
     
     def update_label(self, color, name):
@@ -68,11 +68,15 @@ class MyFader(ShapeNode):
             self.send_command()
             return True
         return False
-        
+    
+    def update_display(self):
+        pass # intended to be implemented in a subclass
+    
     def update_value(self, y):
         y_adjusted = min(max(0, y + self.length / 2 - self.knob_size), self.length - self.knob_size)
         y_adjusted /= self.length - self.knob_size
         self.set_raw_value(y_adjusted)
+        self.update_display()
 
     def update_knob_pos(self):
         y = (self.value - 0.5) * (self.length - self.knob_size)
@@ -84,6 +88,44 @@ class MyFader(ShapeNode):
     def set_raw_value(self, val):
         self.value = val
         self.update_knob_pos()
+
+class RFader(MyFader):
+    def __init__(self, id, action, *args, init_value='0.0', length=240, **kwargs):
+        super().__init__(*args, length=length, **kwargs)
+        self.label = DynamicLabel(parent=self)
+        self.label.position = (0, - self.path.bounds.height / 2 - 40)
+        self.id = id
+        self.command = 'FDC:' + str(id)
+        self.action = action
+        self.set_value(init_value)
+        
+    def send_command(self):
+        self.action(self.command + ',' + self.get_value())
+    
+    def get_value(self):
+        value = self.get_raw_value()
+        if value < 0.02:
+            return 'INF'
+        temp_val = value - 0.02
+        temp_val /= 0.98
+        temp_val *= 90
+        temp_val -= 80
+        return '{:.1f}'.format(temp_val)
+        
+    def update_display(self):
+        value = self.get_value()
+        self.label.set_text(value)
+        
+    def set_value(self, val):
+        if val.lower() == 'inf':
+            self.set_raw_value(0.0)
+            return
+        f = float(val)
+        f += 80
+        f /= 90
+        f * 0.98
+        self.set_raw_value(f + 0.02)
+        self.label.set_text(val)
 
 class ScrollBar(ShapeNode):
     def __init__(self, knob_shape, knob_color, *args, initial_value=1.0, **kwargs):
@@ -142,40 +184,6 @@ class HorizontalScrollBar(ScrollBar):
             self.dragging = False
             return True
         return False
-        
-
-class RFader(MyFader):
-    def __init__(self, id, action, *args, init_value='0.0', length=240, **kwargs):
-        super().__init__(*args, length=length, **kwargs)
-        self.label = DynamicLabel(parent=self)
-        self.label.position = (0, - self.path.bounds.height / 2 - 40)
-        self.id = id
-        self.command = 'FDC:' + str(id)
-        self.action = action
-        self.set_value(init_value)
-        
-    def send_command(self):
-        self.action(self.command + ',' + self.get_value())
-    
-    def get_value(self):
-        value = self.get_raw_value()
-        if value < 0.02:
-            return 'INF'
-        temp_val = value - 0.02
-        temp_val /= 0.98
-        temp_val *= 90
-        temp_val -= 80
-        return '{:.1f}'.format(temp_val)
-        
-    def set_value(self, val):
-        if val.lower() == 'inf':
-            self.set_raw_value(0.0)
-        f = float(val)
-        f += 80
-        f /= 90
-        f * 0.98
-        self.set_raw_value(f + 0.02)
-        self.label.set_text(self.get_value())
 
 class MyButton(ShapeNode):
     def __init__(self, label, action, *args, **kwargs):
