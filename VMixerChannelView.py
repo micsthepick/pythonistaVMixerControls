@@ -581,17 +581,17 @@ class SendsScene(Scene):
         # names
         self.channel_names = self.parent_scene.get_channel_names(self.ch_ids)
         if self.channel_names is None:
-            self.channel_names = ['IN '+str(v) for v in range(1, 33)]
+            self.channel_names = ['CH '+str(v) for v in range(1, 33)]
         else:
             self.channel_names = [
                 v.split('"')[1] if v.count('"') == 2
-                else 'IN '+str(i+1)
+                else 'CH '+str(i+1)
                 for i, v in enumerate(self.channel_names)
             ]
         # volumes
         self.init_volumes = self.get_channel_volumes(self.ch_ids)
         if self.init_volumes is None:
-            self.init_volumes = ['0.0']*self.CHANNEL_COUNT
+            self.init_volumes = ['0.0']*self.ch_count
         else:
             self.init_volumes = [
                 v.split(',')[1] if v.count(',') == 1 else v.split(',')[2] if v.count(',') == 3
@@ -687,29 +687,6 @@ class SendsScene(Scene):
             self.mtx_send_query
         )
         return self.parent_scene.get_multiple_results(chids, query)
-    
-    def get_channel_properties(self):
-        # names
-        self.channel_names = self.parent_scene.get_channel_names(self.ch_ids[:-1])
-        if self.channel_names is None:
-            self.channel_names = [None]*(self.CHANNEL_COUNT - 1)
-        else:
-            self.channel_names = [
-                v.split('"')[1] if v.count('"') == 2
-                else None
-                for v in self.channel_names
-            ]
-        self.channel_names.append(None)
-        # volumes
-        self.init_volumes = self.get_channel_volumes(self.ch_ids)
-        if self.init_volumes is None:
-            self.init_volumes = ['0.0']*self.CHANNEL_COUNT
-        else:
-            self.init_volumes = [
-                v.split(',')[1] if v.count(',') == 1
-                else '0.0'
-                for v in self.init_volumes
-            ]
     
     def mirror_scroll_pos(self):
         norm_pos = min(1,
