@@ -92,7 +92,7 @@ class RFader(MyFader):
     def __init__(self, id, action, *args, init_value='0.0', length=240, **kwargs):
         super().__init__(*args, length=length, **kwargs)
         self.label = DynamicLabel(parent=self)
-        self.label.position = (0, - self.path.bounds.height / 2 - 40)
+        self.label.position = (0, - self.path.bounds.height / 2 - 35)
         self.id = id
         self.command = 'FDC:' + str(id)
         self.action = action
@@ -375,7 +375,7 @@ class Main(Scene):
                     parent=self.panel,
                     position=(
                         self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.panel_height / 2
+                        self.panel_height / 2 - 25
                     )
                 )
             )
@@ -665,7 +665,7 @@ class SendsScene(Scene):
                     parent=self.panel,
                     position=(
                         self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.parent_scene.panel_height / 2
+                        self.parent_scene.panel_height / 2 - 25
                     )
                 )
             )
