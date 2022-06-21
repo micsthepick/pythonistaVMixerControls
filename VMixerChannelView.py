@@ -323,15 +323,12 @@ class Main(Scene):
         
     def create_ui_elements(self):
         # main panel
-        self.panel = ShapeNode(
-            Path.rect(0, 0, self.panel_width, self.panel_height),
-            self.background_color,
+        self.panel = Node(
             parent=self,
             position=(
                 0,
                 self.SCROLLBAR_HEIGHT
-            ),
-            anchor_point=(0, 0)
+            )
         )
         # main scroll bar
         self.scroll = HorizontalScrollBar(
