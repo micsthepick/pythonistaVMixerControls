@@ -1,25 +1,13 @@
 # todo
 
-## config
+## ChannelView
+
+### config
 [X] config file
     [X] file based config
     [X] runtime config
     [X] optionally save config
-
-## masterConsole
-
-### base features
-[ ] sliding / paging view
-[ ] volume sliders
-[ ] double tap to activate panic
-[ ] linked channel handling
-    [ ] panning
-
-
-
-
-
-## ChannelView
+    [ ] reconfigure on proxy error
 
 ### urgent fixes
 [X] move slider control sensing region to same location as it got moved graphically (oops)
@@ -63,20 +51,16 @@
 ## effectsView
 
 ### ?
-[ ] decide whether to make this a seperate thing to masterConsole
+[ ] decide whether to make this a seperate thing to ChannelView, or to not implement
 
 ### features
 [ ] channel ops
     [ ] parametric eq
-        [ ] buttons and knobs
-        [ ] display
+        [ ] toggle button
     [ ] hpf
-        [ ] buttons and knobs
-        [ ] display
+        [ ] toggle button
     [ ] gate / comp
-[ ] mains
-    [ ] peq
-    [ ] geq
+        [ ] toggle button
     
 
 
