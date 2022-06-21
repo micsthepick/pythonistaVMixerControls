@@ -289,8 +289,8 @@ class Main(Scene):
         self.cmd = self.send_command_stub if DEBUG else self.create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
-        self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
-        self.panel_width = max(self.bounds.width, self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT)
+        self.panel_height = min(self.bounds.width, self.bounds.height) - self.SCROLLBAR_HEIGHT
+        self.panel_width = self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT
         self.background_color = '#111'
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
@@ -369,7 +369,7 @@ class Main(Scene):
                     channel_id,
                     self.cmd,
                     init_value=self.init_volumes[r],
-                    length=240 if self.bounds.height > 600 else 120,
+                    length=240 if self.bounds.height >= 600 else 120,
                     parent=self.panel,
                     position=(
                         self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
@@ -659,7 +659,7 @@ class SendsScene(Scene):
                     channel_id,
                     self.cmd,
                     init_value=self.init_volumes[r],
-                    length=240 if self.bounds.height > 600 else 120,
+                    length=240 if self.bounds.height >= 600 else 120,
                     parent=self.panel,
                     position=(
                         self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
@@ -787,4 +787,8 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 if __name__ == '__main__':
-    run(Main())
+    orientation = DEFAULT_ORIENTATION
+    if min(get_screen_size()) < 600:
+        # lock to portrait orientation for small devices
+        orientation = PORTRAIT
+    run(Main(), orientation)
