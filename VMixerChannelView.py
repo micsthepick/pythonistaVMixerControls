@@ -6,7 +6,6 @@ from scene import *
 from ui import Path
 from dialogs import form_dialog
 
-
 DEBUG = False
 
 class ChannelName(ShapeNode):
@@ -289,7 +288,10 @@ class Main(Scene):
         self.cmd = self.send_command_stub if DEBUG else self.create_socket_and_send
         self.CHANNEL_SCREEN_WIDTH = 128
         self.SCROLLBAR_HEIGHT = 30
-        self.panel_height = min(self.bounds.width, self.bounds.height) - self.SCROLLBAR_HEIGHT
+        if orientation == DEFAULT_ORIENTATION:
+            self.panel_height = min(self.bounds.width, self.bounds.height) - self.SCROLLBAR_HEIGHT
+        else:
+            self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
         self.panel_width = self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT
         self.background_color = '#111'
         self.all_noninteractive_elems = []
