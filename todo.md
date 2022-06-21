@@ -40,6 +40,7 @@
 ### Graphics
 [ ] fix orientation changes
     [X] stop rotation on phones
+    [ ] allow for shuffling of vertical elements on large screens
 
 ### Testing
 [ ] regular ipad at home w/ proxy emulator
