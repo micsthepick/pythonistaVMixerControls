@@ -273,7 +273,7 @@ class Main(Scene):
                 ]
             )
             self.ip = data['IP']
-            self.port = data['PORT']
+            self.port = int(data['PORT'])
             if data['remember']:
                 with open('.vmxproxypyipport', 'w') as f:
                     f.write(self.ip + '\n' + str(self.port))
@@ -323,12 +323,15 @@ class Main(Scene):
         
     def create_ui_elements(self):
         # main panel
-        self.panel = Node(
+        self.panel = ShapeNode(
+            Path.rect(0, 0, self.panel_width, self.panel_height),
+            self.background_color,
             parent=self,
             position=(
                 0,
                 self.SCROLLBAR_HEIGHT
-            )
+            ),
+            anchor_point=(0, 0)
         )
         # main scroll bar
         self.scroll = HorizontalScrollBar(
