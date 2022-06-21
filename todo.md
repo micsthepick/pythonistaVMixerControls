@@ -37,12 +37,58 @@
 [X] configuration modal
 [X] disable DEBUG and print statments
 
+### Graphics
+[ ] fix orientation changes
+    [X] stop rotation on phones
+
+### Testing
+[ ] regular ipad at home w/ proxy emulator
+    [ ] 1 aux
+        [ ] correct name
+        [ ] Initial values > 0, =0, < 0, -inf
+        [ ] set values shows up on page 3 fader
+        [ ] sends
+            [ ] correct amount
+            [ ] correct name
+            [ ] Initial values > 0, =0, < 0, -inf
+            [ ] sends on faders works correctly
+    [ ] 1 mtx
+        [ ] correct name
+        [ ] Initial values > 0, =0, < 0, -inf
+        [ ] set values shows up on page 3 fader
+        [ ] sends
+            [ ] correct amount
+            [ ] correct name
+            [ ] Initial values > 0, =0, < 0, -inf
+            [ ] sends on faders works correctly
+    [ ] mains
+        [ ] correct name
+        [ ] Initial values > 0, =0, < 0, -inf
+        [ ] set values shows up on main fader
+        [ ] sends
+            [ ] correct amount
+            [ ] correct name
+            [ ] Initial values > 0, =0, < 0, -inf
+            [ ] main faders works correctly
+[ ] ipad mini at home w/ proxy emulator
+    [ ] no layout issues
+        [ ] test at least one fader and send fader
+[ ] phone at home w/ proxy emulator
+    [ ] no layout issues
+        [ ] test at least one fader and send fader
+[ ] ipad at church
+[ ] ipad mini at church
+    [ ] no layout issues
+        [ ] test at least one fader and send fader
+[ ] phone at church
+    [ ] no layout issues
+        [ ] test at least one fader and send fader
+
 ### optional extras
 [X] scroll by dragging
-[ ] panning?
-[ ] easter egg?
-[ ] allow orientation changes
-[ ] layout improvments for small devices
+[ ] panning (L,R,C)?
+[ ] MAC
+[X] layout improvments for small devices
 
 
 
