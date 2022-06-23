@@ -262,20 +262,26 @@ class Main(Scene):
             with open('.vmxproxypyipport', 'r') as f:
                 self.ip = f.readline().strip()
                 self.port = int(f.readline().strip())
+                self.password = f.readline().strip()
+                if not DEBUG:
+                    if not self.create_socket_and_send(chr(6)):
+                        raise Exception()
         except Exception:
             data = form_dialog(
                 'Configure Proxy', 
                 [
                     {'title': 'IP', 'type': 'text'},
                     {'title': 'PORT', 'type': 'number'},
-                    {'title': 'remember', 'type': 'check'}
+                    {'title': 'password', 'type': 'text'},
+                    {'title': 'remember?', 'type': 'check'},
                 ]
             )
             self.ip = data['IP']
             self.port = int(data['PORT'])
-            if data['remember']:
+            self.password = data['password']
+            if data['remember?']:
                 with open('.vmxproxypyipport', 'w') as f:
-                    f.write(self.ip + '\n' + str(self.port))
+                    f.write(self.ip + '\n' + str(self.port) + '\n' + self.password)
         super().__init__(*args, **kwargs)
     
     def setup(self):
@@ -523,12 +529,18 @@ class Main(Scene):
     
     def create_socket_and_send(self, command):
         def sendGetReply(command):
-            expected_results = command.count('&') + 1
-            reply = b''
             try:
+                if self.password.strip():
+                    pwd_command = chr(2) + '###PWD:' + self.password + ';'
+                    sock.sendall(bytes(pwd_command, 'ascii'))
+                    reply = b''
+                    while reply.count(b'"') < 2:
+                        reply += sock.recv(64)
+                expected_results = command.count('&') + 1
+                reply = b''
                 message = chr(2) + command + ';'
                 sock.sendall(bytes(message, 'ascii'))
-                while reply.count(b';') < expected_results and reply[-1:] != bytes(chr(6), 'ascii'):
+                while reply.count(b';') < expected_results and reply[-1:] != b'\x06':
                     reply += sock.recv(64)
             except socket.timeout:
                 reply = None

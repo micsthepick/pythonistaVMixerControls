@@ -89,6 +89,7 @@
 [X] scroll by dragging
 [ ] panning (L,R,C)?
 [ ] MAC
+[ ] pre-amp ajdust
 [X] layout improvments for small devices
 
 
