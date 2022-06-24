@@ -264,7 +264,7 @@ class Main(Scene):
                 self.port = int(f.readline().strip())
                 self.password = f.readline().strip()
                 if not DEBUG:
-                    if not self.create_socket_and_send(chr(6)):
+                    if self.create_socket_and_send(chr(6)) == b'':
                         raise Exception()
         except Exception:
             data = form_dialog(
@@ -324,7 +324,7 @@ class Main(Scene):
             self.init_volumes = ['0.0']*self.CHANNEL_COUNT
         else:
             self.init_volumes = [
-                v.split(',')[1] if v.count(',') == 1
+                v.split(',')[1] if v.count(',') in {1, 2} else v.split(',')[2] if v.count(',') == 3
                 else '0.0'
                 for v in self.init_volumes
             ]
@@ -563,7 +563,7 @@ class Main(Scene):
         
         reply = sendGetReply(command)
         
-        #print(reply)
+        # print(reply)
         
         #print('closing socket', file=sys.stderr)
         sock.close()
@@ -608,7 +608,7 @@ class SendsScene(Scene):
             self.init_volumes = ['0.0']*self.ch_count
         else:
             self.init_volumes = [
-                v.split(',')[1] if v.count(',') == 1 else v.split(',')[2] if v.count(',') == 3
+                v.split(',')[1] if v.count(',') in {1, 2} else v.split(',')[2] if v.count(',') == 3
                 else '0.0'
                 for v in self.init_volumes
             ]
