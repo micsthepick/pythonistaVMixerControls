@@ -48,6 +48,8 @@
 [ ] change server settings
 [ ] hide mute for mains
 
+[ ] channel rename view
+
 [ ] top bar
     [ ] close this menu button
     [ ] refresh button
@@ -109,7 +111,8 @@
 ### optional extras
 [X] scroll by dragging
 [ ] panning (L,R,C)?
-[ ] MAC
+[ ] grouping
+[ ] MAC - mains C
 [ ] pre-amp ajdust
 [X] layout improvments for small devices
 
