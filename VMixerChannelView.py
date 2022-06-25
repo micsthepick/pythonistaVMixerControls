@@ -5,23 +5,35 @@ import random
 from scene import *
 from ui import Path
 from dialogs import form_dialog
+import sound
 
 DEBUG = False
 VERBOSE = 0
 
+
+def get_text(res):
+    return res.split('"')[1].strip()
+
+
 class ChannelName(ShapeNode):
-    def __init__(self, x_size, color, name, *args, **kwargs):
+    def __init__(self, x_size, color, name, id, cmd, *args, **kwargs):
         # super is the label box
         super().__init__(Path.rect(0, 0, x_size, 50), *args, **kwargs)
         self.label_text = LabelNode(name, ('Monospace', 20), parent=self)
         self.update_label(color, name)
+        self.id = id
+        self.cmd = cmd
     
     def update_label(self, color, name):
         self.fill_color = {0:'#444'}[0]
         self.stroke_color = {0:'#222'}[0]
         self.name = name
         self.label_text.text = name
-        
+    
+    def update_me(self):
+        self.update_label(0, get_text(self.cmd('CNQ:' + self.id)))
+
+
 class DynamicLabel(ShapeNode):
     def __init__(self, *args, **kwargs):
         super().__init__(
@@ -35,6 +47,7 @@ class DynamicLabel(ShapeNode):
     
     def set_text(self, text_value):
         self.label_text.text = text_value + ' db'
+
 
 class MyFader(ShapeNode):
     def __init__(self, *args, length=240, **kwargs):
@@ -89,6 +102,11 @@ class MyFader(ShapeNode):
         self.value = val
         self.update_knob_pos()
 
+
+def get_float_as_str(res):
+    return res.split(',')[-1].rstrip(';<ack>')
+
+
 class RFader(MyFader):
     def __init__(self, id, action, *args, init_value='0.0', length=240, **kwargs):
         super().__init__(*args, length=length, **kwargs)
@@ -96,11 +114,12 @@ class RFader(MyFader):
         self.label.position = (0, - self.path.bounds.height / 2 - 35)
         self.id = id
         self.command = 'FDC:' + str(id)
+        self.query_command = 'FDQ:' + str(id)
         self.action = action
         self.set_value(init_value)
         
     def send_command(self):
-        self.action(self.command + ',' + self.get_value())
+        self.action(self.command + ',' + self.get_value())   
     
     def get_value(self):
         value = self.get_raw_value()
@@ -127,11 +146,16 @@ class RFader(MyFader):
         f /= 90
         f * 0.98
         self.set_raw_value(f + 0.02)
+    
+    def update_me(self):
+        self.set_value(get_float_as_str(self.action(self.query_command)))
+
 
 class RSendFader(RFader):
     def __init__(self, alt_command, send_id, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.command = alt_command + str(self.id) + ',' + send_id
+
 
 class ScrollBar(ShapeNode):
     def __init__(self, knob_shape, knob_color, *args, initial_value=1.0, **kwargs):
@@ -145,6 +169,7 @@ class ScrollBar(ShapeNode):
     
     def set_value(self, val):
         self.value = val
+
 
 class HorizontalScrollBar(ScrollBar):
     def __init__(self, width, height, color, knob_color, *args, initial_value=1.0, **kwargs):
@@ -191,6 +216,7 @@ class HorizontalScrollBar(ScrollBar):
             return True
         return False
 
+
 class MyButton(ShapeNode):
     def __init__(self, label, action, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -200,11 +226,10 @@ class MyButton(ShapeNode):
     
     # called for EVERY touch, not just ones in the area of the button
     def handle_touch_ended(self, pos, panel_pos):
-        if not self.button_held:
-            return False
+        converted_pos = self.parent.point_from_scene(pos)
         self.button_held = False
-        if not self.frame.contains_point(panel_pos):
-            return False        
+        if not self.frame.contains_point(converted_pos):
+            return False
         self.action(self.command)
         self._reverseHeldAnimation()
         return True
@@ -213,7 +238,8 @@ class MyButton(ShapeNode):
     def handle_touch_drag(self, pos, panel_pos):
         if not self.button_held:
             return False
-        if not self.frame.contains_point(panel_pos):
+        converted_pos = self.parent.point_from_scene(pos)
+        if not self.frame.contains_point(converted_pos):
             self._reverseHeldAnimation()
         else:
             self._runHeldAnimation()
@@ -221,7 +247,8 @@ class MyButton(ShapeNode):
 
     # like above
     def handle_touch_begin(self, pos, panel_pos):
-        if not self.frame.contains_point(panel_pos):
+        converted_pos = self.parent.point_from_scene(pos)
+        if not self.frame.contains_point(converted_pos):
             return False
         self.button_held = True
         self._runHeldAnimation()
@@ -243,32 +270,60 @@ class MyButton(ShapeNode):
             Action.scale_to(1, 0.05)
         )
 
-class UnmuteButton(MyButton):
-    def __init__(self, path, action, label, id, *args, **kwargs):
-        super().__init__(label, action, path, '#3f3', '#040', *args, **kwargs)
-        self.command = 'MUC:' + str(id) + ',0'
+def get_int_from_result(res):
+    return int(res.split(',')[1].rstrip(';<ack>'))
+
 
 class MuteButton(MyButton):
+    def update_me(self, set_value=None):
+        if set_value is not None:
+            self.action_original(set_value + str(1 - self.state))
+        self.state = get_int_from_result(self.action_original(self.refresh_command))
+        self.button_text.text = ['Live', 'Muted'][self.state]
+        self.color = ['#611', '#f11'][self.state]
+        self.stroke_color = ['#300', '#600'][self.state]
+    
     def __init__(self, path, action, label, id, *args, **kwargs):
-        super().__init__(label, action, path, '#f33', '#400', *args, **kwargs)
-        self.command = 'MUC:' + str(id) + ',1'
-        
+        self.action_original = action
+        super().__init__(label, self.update_me, path, '#611', '#300', *args, **kwargs)
+        self.command = 'MUC:' + str(id) + ','
+        self.refresh_command = 'MUQ:' + str(id)
+
+
 class SendsButton(MyButton):
     def __init__(self, action, path, id, *args, **kwargs):
         super().__init__('SENDS', action, path, '#f83', '#420', *args, **kwargs)
         self.command = id
+    
+    def update_me(self):
+        pass
+
+
+class ReloadButton(MyButton):
+    def __init__(self, action, path, *args, **kwargs):
+        super().__init__('RELOAD', action, path, '#f83', '#420', *args, **kwargs)
+        self.command = ''
+    
+    def update_me(self):
+        pass
+    
 
 class Main(Scene):
     def __init__(self, *args, **kwargs):
+        self.sock = None
         try:
             with open('.vmxproxypyipport', 'r') as f:
                 self.ip = f.readline().strip()
                 self.port = int(f.readline().strip())
                 self.password = f.readline().strip()
-                if not DEBUG:
-                    if not 'VRS' in self.create_socket_and_send('VRQ'):
-                        raise Exception()
-        except Exception:
+            if VERBOSE:
+                print('loaded sock params')
+            if not DEBUG:
+                if not 'VRS' in self.sendGetReply('VRQ'):
+                    if VERBOSE: print('invalid version response')
+                    raise Exception()
+        except Exception as e:
+            if VERBOSE: print(e)
             data = form_dialog(
                 'Configure Proxy', 
                 [
@@ -284,6 +339,7 @@ class Main(Scene):
             if data['remember?']:
                 with open('.vmxproxypyipport', 'w') as f:
                     f.write(self.ip + '\n' + str(self.port) + '\n' + self.password)
+        self.sends_scene = None
         super().__init__(*args, **kwargs)
     
     def setup(self):
@@ -293,47 +349,55 @@ class Main(Scene):
             + ['MAL']
         )
         self.CHANNEL_COUNT = len(self.ch_ids) # 8 out, 4 mtx, main
-        self.cmd = self.send_command_stub if DEBUG else self.create_socket_and_send
+        self.cmd = self.send_command_stub if DEBUG else self.sendGetReply
         self.CHANNEL_SCREEN_WIDTH = 128
+        self.MENU_HEIGHT = 60
         self.SCROLLBAR_HEIGHT = 30
         if orientation == DEFAULT_ORIENTATION:
-            self.panel_height = min(self.bounds.width, self.bounds.height) - self.SCROLLBAR_HEIGHT
+            self.panel_height = (
+                min(self.bounds.width, self.bounds.height)
+                - self.SCROLLBAR_HEIGHT
+                - self.MENU_HEIGHT
+            )
         else:
-            self.panel_height = self.bounds.height - self.SCROLLBAR_HEIGHT
+            self.panel_height = (
+                self.bounds.height
+                - self.SCROLLBAR_HEIGHT
+                - self.MENU_HEIGHT
+            )
         self.panel_width = self.CHANNEL_SCREEN_WIDTH * self.CHANNEL_COUNT
         self.background_color = '#111'
         self.all_noninteractive_elems = []
         self.all_ui_elements = []
-        self.get_channel_properties()
         self.create_ui_elements()
         self.dragging = False
-
-    def get_channel_properties(self):
-        # names
-        self.channel_names = self.get_channel_names(self.ch_ids[:-1])
-        if self.channel_names is None:
-            self.channel_names = [None]*(self.CHANNEL_COUNT - 1)
-        else:
-            self.channel_names = [
-                v.split('"')[1] if v.count('"') == 2
-                else None
-                for v in self.channel_names
-            ]
-        self.channel_names.append(None)
-        # volumes
-        self.init_volumes = self.get_channel_volumes(self.ch_ids)
-        if VERBOSE > 1: print(self.init_volumes)
-        if self.init_volumes is None:
-            self.init_volumes = ['0.0']*self.CHANNEL_COUNT
-        else:
-            self.init_volumes = [
-                v.split(',')[1] if v.count(',') in {1, 2} else v.split(',')[2] if v.count(',') == 3
-                else '0.0'
-                for v in self.init_volumes
-            ]
-        if VERBOSE > 1: print(self.init_volumes)
+        self.refresh()
+        
+    def refresh(self):
+        for elem in self.all_noninteractive_elems + self.all_ui_elements:
+            elem.update_me()
+        if self.sends_scene is not None:
+            self.sends_scene.refresh()
         
     def create_ui_elements(self):
+        # title bar
+        self.title_bar = ShapeNode(
+            Path.rect(0, 0, self.panel_width, self.MENU_HEIGHT),
+            '#111',
+            parent=self,
+            position=(
+                0,
+                self.bounds.height - self.MENU_HEIGHT
+            ),
+            anchor_point=(0, 0)
+        )
+        self.reload_button = ReloadButton(
+            lambda x: self.refresh(),
+            Path.rect(0, 0, 120, 40),
+            parent=self.title_bar,
+            position=(150, 30)
+        )
+        self.all_ui_elements.append(self.reload_button)
         # main panel
         self.panel = ShapeNode(
             Path.rect(0, 0, self.panel_width, self.panel_height),
@@ -356,73 +420,59 @@ class Main(Scene):
         )
         # channel elements
         for r, channel_id in enumerate(self.ch_ids):
-            # name tag
-            channel_name = self.channel_names[r]
-            if channel_name is None:
-                channel_name = (
-                    'AUX ' + str(r+1) if r < 8
-                    else 'MTX ' + str(r - 7) if r < 12
-                    else 'MAIN'
-                )
-            self.all_noninteractive_elems.append(
-                ChannelName(
-                    self.CHANNEL_SCREEN_WIDTH * 7 / 8,
-                    0,
-                    channel_name,
-                    parent=self.panel,
-                    position=(
-                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.panel_height - 35
-                    )
+            channel_name = (
+                'AUX ' + str(r+1) if r < 8
+                else 'MTX ' + str(r - 7) if r < 12
+                else 'MAIN'
+            )
+            cn = ChannelName(
+                self.CHANNEL_SCREEN_WIDTH * 7 / 8,
+                0,
+                channel_name,
+                channel_id,
+                self.cmd,
+                parent=self.panel,
+                position=(
+                    self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                    self.panel_height - 35
                 )
             )
-            self.all_ui_elements.append(
-                RFader(
-                    channel_id,
-                    self.cmd,
-                    init_value=self.init_volumes[r],
-                    length=240 if self.bounds.height >= 600 else 120,
-                    parent=self.panel,
-                    position=(
-                        self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.panel_height / 2 - 25
-                    )
+            self.all_noninteractive_elems.append(cn)
+            rf = RFader(
+                channel_id,
+                self.cmd,
+                init_value='0.0',
+                length=240 if self.bounds.height >= 600 else 120,
+                parent=self.panel,
+                position=(
+                    self.CHANNEL_SCREEN_WIDTH * (r + 0.5),
+                    self.panel_height / 2 - 25
                 )
             )
+            self.all_ui_elements.append(rf)
             if channel_id[:2] != 'MA':
-                self.all_ui_elements.append(
-                    MuteButton(
-                        Path.rect(0, 0, 60, 60),
-                        self.cmd,
-                        'M',
-                        channel_id,
-                        parent=self.panel,
-                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 110)
-                    )
-                )
-                self.all_ui_elements.append(
-                    UnmuteButton(
-                        Path.rect(0, 0, 60, 60),
-                        self.cmd,
-                        'U',
-                        channel_id,
-                        parent=self.panel,
-                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 190)
-                    )
-                )
-            self.all_ui_elements.append(
-                SendsButton(
-                    self.show_sends,
-                    Path.rect(0, 0, 80, 60),
+                mb = MuteButton(
+                    Path.rect(0, 0, 60, 60),
+                    self.cmd,
+                    'Live',
                     channel_id,
                     parent=self.panel,
-                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, 80)
+                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 110)
                 )
+                self.all_ui_elements.append(mb)
+            sb = SendsButton(
+                self.show_sends,
+                Path.rect(0, 0, 80, 60),
+                channel_id,
+                parent=self.panel,
+                position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, 80)
             )
+            self.all_ui_elements.append(sb)
             
     def show_sends(self, ch_id):
-        sends_scene = SendsScene(self, ch_id)
-        self.present_modal_scene(sends_scene)
+        self.sends_scene = SendsScene(self, ch_id)
+        self.present_modal_scene(self.sends_scene)
+        self.sends_scene = None
             
     def mirror_scroll_pos(self):
         norm_pos = min(1,
@@ -532,48 +582,57 @@ class Main(Scene):
     def send_command_stub(self, command):
         print(command)
     
-    def create_socket_and_send(self, command):
-        def sendGetReply(command):
-            try:
-                if self.password.strip():
-                    pwd_command = chr(2) + '###PWD:' + self.password + ';'
-                    sock.sendall(bytes(pwd_command, 'ascii'))
-                    reply = b''
-                    while reply.count(b'"') < 2:
-                        reply += sock.recv(64)
-                expected_results = command.count('&') + 1
-                reply = b''
-                message = chr(2) + command + ';'
-                if VERBOSE: print(message)
-                sock.sendall(bytes(message, 'ascii'))
-                while reply.count(b';') < expected_results and reply[-1:] != b'\x06':
-                    reply += sock.recv(64)
-            except socket.timeout:
-                reply = None
-        
-            if reply:
-                reply = reply.replace(bytes(chr(6), 'ascii'), b"<ack>")
-                reply = reply.replace(bytes(chr(2), 'ascii'), b"<stx>")
-                reply = str(reply, 'ascii')
-
-            return reply
-    
+    def refresh_socket(self):
         # Create a TCP/IP socket
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
         # Connect the socket to the port where the server is listening
         server_address = (self.ip, self.port)
         if VERBOSE: print('connecting to %s port %s' % server_address)
-        sock.settimeout(5)
-        sock.connect(server_address)
         
-        reply = sendGetReply(command)
+        self.sock.settimeout(5)
+        self.sock.connect(server_address)
+        self.sock.settimeout(None)
+        
+    def sendGetReply(self, command):
+        try:
+            if self.password.strip():
+                pwd_command = chr(2) + '###PWD:' + self.password + ';'
+                if self.sock is None:
+                    self.refresh_socket()
+                try:
+                    self.sock.settimeout(5)
+                    self.sock.sendall(bytes(pwd_command, 'ascii'))
+                    self.sock.settimeout(None)
+                except socket.error:
+                    self.refresh_socket()
+                    self.sock.settimeout(5)
+                    self.sock.sendall(bytes(pwd_command, 'ascii'))
+                    self.sock.settimeout(None)
+                reply = b''
+                while reply.count(b'"') < 2:
+                    self.sock.settimeout(5)
+                    reply += self.sock.recv(64)
+                    self.sock.settimeout(None)
+            expected_results = command.count('&') + 1
+            reply = b''
+            message = chr(2) + command + ';'
+            if VERBOSE: print(message)
+            self.sock.sendall(bytes(message, 'ascii'))
+            while reply.count(b';') < expected_results and reply[-1:] != b'\x06':
+                self.sock.settimeout(5)
+                reply += self.sock.recv(64)
+                self.sock.settimeout(None)
+        except socket.timeout:
+            reply = None
+    
+        if reply:
+            reply = reply.replace(bytes(chr(6), 'ascii'), b"<ack>")
+            reply = reply.replace(bytes(chr(2), 'ascii'), b"<stx>")
+            reply = str(reply, 'ascii')
         
         if VERBOSE: print(reply)
-        
-        #print('closing socket', file=sys.stderr)
-        sock.close()
-        
+    
         return reply
 
 class SendsScene(Scene):
@@ -589,51 +648,31 @@ class SendsScene(Scene):
             self.bounds.width,
             self.parent_scene.CHANNEL_SCREEN_WIDTH * self.ch_count
         )
+        self.panel_height = self.parent_scene.panel_height + self.parent_scene.MENU_HEIGHT
         self.background_color = self.parent_scene.background_color
         self.cmd = self.parent_scene.cmd
         self.dragging = False
         self.all_noninteractive_elems = []
-        self.all_ui_elements = []
-        self.get_channel_properties()
+        self.all_ui_elements = [self.parent_scene.reload_button]
         self.create_ui_elements()
-    
-    def get_channel_properties(self):
-        # names
-        self.channel_names = self.parent_scene.get_channel_names(self.ch_ids)
-        if self.channel_names is None:
-            self.channel_names = ['CH '+str(v) for v in range(1, 33)]
-        else:
-            self.channel_names = [
-                v.split('"')[1] if v.count('"') == 2
-                else 'CH '+str(i+1)
-                for i, v in enumerate(self.channel_names)
-            ]
-        # volumes
-        self.init_volumes = self.get_channel_volumes(self.ch_ids)
-        if self.init_volumes is None:
-            self.init_volumes = ['0.0']*self.ch_count
-        else:
-            self.init_volumes = [
-                v.split(',')[1] if v.count(',') in {1, 2} else v.split(',')[2] if v.count(',') == 3
-                else '0.0'
-                for v in self.init_volumes
-            ]
+        self.refresh()
     
     def create_ui_elements(self):
         # main panel
-        self.fake_panel = ShapeNode(
-            Path.rect(0, 0, self.bounds.width, self.parent_scene.panel_height),
+        self.static_panel = ShapeNode(
+            Path.rect(0, 0, self.bounds.width+1, self.panel_height),
             self.background_color,
             parent=self,
             position=(
-                0,
+                -1,
                 self.parent_scene.SCROLLBAR_HEIGHT
             ),
             anchor_point=(0, 0)
         )
+        # not sure why, but need to fix a pixel on left on ipad
         self.panel = Node(
-            position=(0, self.parent_scene.SCROLLBAR_HEIGHT),
-            parent=self
+            position=(0, 0),
+            parent=self.static_panel
         )
         # scroll bar
         self.scroll = HorizontalScrollBar(
@@ -641,32 +680,34 @@ class SendsScene(Scene):
             self.parent_scene.SCROLLBAR_HEIGHT,
             '#AAA',
             '#FFF',
-            parent=self,
-            position=(0, self.parent_scene.SCROLLBAR_HEIGHT)
+            parent=self.static_panel,
+            position=(0, 0)
         )
-        # close button - requires custom handling in touch handler because it floats
+        # close button
         self.close_button = MyButton(
             'X', lambda x:self.dismiss_modal_scene(),
-            Path.rect(0, 0, 50, 50),
+            Path.rect(0, 0, 40, 40),
             '#F33',
             '#400',
-            parent=self,
-            position=(30, self.bounds.height-30)
+            parent=self.static_panel,
+            position=(30, self.static_panel.path.bounds.height - 30)
         )
-        self.close_button.command = None;
+        self.close_button.command = None
         # channel elements
         for r, channel_id in enumerate(self.ch_ids):
             # name tag
-            channel_name = self.channel_names[r]
+            channel_name = "IN " + str(r + 1)
             self.all_noninteractive_elems.append(
                 ChannelName(
                     self.parent_scene.CHANNEL_SCREEN_WIDTH * 7 / 8,
                     0,
                     channel_name,
+                    channel_id,
+                    self.cmd,
                     parent=self.panel,
                     position=(
                         self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.parent_scene.panel_height - 100
+                        self.panel_height - 100
                     )
                 )
             )
@@ -678,15 +719,19 @@ class SendsScene(Scene):
                     self.out_channel,
                     channel_id,
                     self.cmd,
-                    init_value=self.init_volumes[r],
+                    init_value='0.0',
                     length=240 if self.bounds.height >= 600 else 120,
                     parent=self.panel,
                     position=(
                         self.parent_scene.CHANNEL_SCREEN_WIDTH * (r + 0.5),
-                        self.parent_scene.panel_height / 2 - 25
+                        self.panel_height / 2 - 25
                     )
                 )
             )
+    
+    def refresh(self):
+        for elem in self.all_noninteractive_elems + self.all_ui_elements:
+            elem.update_me()
     
     def aux_send_query(self, chid):
         temp = ',' + self.out_channel
@@ -715,7 +760,7 @@ class SendsScene(Scene):
     def update_scroll_pos(self):
         self.panel.position = (
             min(0, -self.scroll.get_value() * (self.panel_width - self.bounds.width)),
-            self.parent_scene.SCROLLBAR_HEIGHT
+            0
         )
     
     def touch_ended(self, touch):
@@ -744,7 +789,7 @@ class SendsScene(Scene):
                 Action.sequence(
                     Action.move_to(
                         bounded_pos,
-                        self.parent_scene.SCROLLBAR_HEIGHT,
+                        0,
                         0.5,
                         TIMING_SINODIAL
                     ),

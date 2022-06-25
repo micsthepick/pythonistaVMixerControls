@@ -38,29 +38,25 @@
 ### Graphics
 [ ] fix orientation changes
     [X] stop rotation on phones
-    [ ] allow for shuffling of vertical elements on large screens
+    [ ] allow for shuffling of elements vertically when rotating
 [ ] visual feeback
     [ ] suceeded commands
-    [ ] failed commands
-[ ] channel display filtering
-    [ ] select channels
-    [ ] only show acl enabled features
+    [ ] failed commands (error msg?)
 [ ] change server settings
 [X] hide mute for mains
 
 [ ] channel rename view
 
 [ ] top bar
-    [ ] close this menu button
-    [ ] refresh button
+    [X] refresh button
     [ ] configure proxy button
     [ ] show ip address?
     
 ### Refresh functionality
 [ ] Refresh button
-    [ ] Update (appropriate) sliders on refresh
-    [ ] change mute / unmute to same button
-    [ ] update state of mute / unmute on refresh
+    [X] Update (appropriate) sliders on refresh
+    [X] change mute / unmute to same button
+    [X] update state of mute / unmute on refresh
     
 ### persistent connection
 [ ] stub connection on class
@@ -115,6 +111,9 @@
 [ ] MAC - mains C
 [ ] pre-amp ajdust
 [X] layout improvments for small devices
+[ ] channel display filtering
+    [ ] select channels
+    [ ] only show acl enabled features
 
 
 
