@@ -7,6 +7,7 @@ from ui import Path
 from dialogs import form_dialog
 
 DEBUG = False
+VERBOSE = 0
 
 class ChannelName(ShapeNode):
     def __init__(self, x_size, color, name, *args, **kwargs):
@@ -99,7 +100,7 @@ class RFader(MyFader):
         self.set_value(init_value)
         
     def send_command(self):
-        self.action(self.command + ',' + self.get_value() + ',C')
+        self.action(self.command + ',' + self.get_value())
     
     def get_value(self):
         value = self.get_raw_value()
@@ -120,6 +121,7 @@ class RFader(MyFader):
         if val.lower() == 'inf':
             self.set_raw_value(0.0)
             return
+        if VERBOSE > 1: print(val)
         f = float(val)
         f += 80
         f /= 90
@@ -264,7 +266,7 @@ class Main(Scene):
                 self.port = int(f.readline().strip())
                 self.password = f.readline().strip()
                 if not DEBUG:
-                    if self.create_socket_and_send(chr(6)) == b'':
+                    if not 'VRS' in self.create_socket_and_send('VRQ'):
                         raise Exception()
         except Exception:
             data = form_dialog(
@@ -320,6 +322,7 @@ class Main(Scene):
         self.channel_names.append(None)
         # volumes
         self.init_volumes = self.get_channel_volumes(self.ch_ids)
+        if VERBOSE > 1: print(self.init_volumes)
         if self.init_volumes is None:
             self.init_volumes = ['0.0']*self.CHANNEL_COUNT
         else:
@@ -328,6 +331,7 @@ class Main(Scene):
                 else '0.0'
                 for v in self.init_volumes
             ]
+        if VERBOSE > 1: print(self.init_volumes)
         
     def create_ui_elements(self):
         # main panel
@@ -356,7 +360,7 @@ class Main(Scene):
             channel_name = self.channel_names[r]
             if channel_name is None:
                 channel_name = (
-                    'OUT ' + str(r+1) if r < 8
+                    'AUX ' + str(r+1) if r < 8
                     else 'MTX ' + str(r - 7) if r < 12
                     else 'MAIN'
                 )
@@ -502,7 +506,8 @@ class Main(Scene):
         self.dragging = True
         
     def get_channel_volumes(self, chids):
-        return self.get_multiple_results(chids, self.get_channel_volume_query)
+        query = self.get_channel_volume_query
+        return self.get_multiple_results(chids, query)
         
     def get_channel_names(self, chids):
         return self.get_multiple_results(chids, self.get_channel_name_query)
@@ -511,8 +516,7 @@ class Main(Scene):
         results = query(chids)
         if not isinstance(results, str):
             return None
-        return results.split(';')[:-1]
-    
+        return results.split(';')[:-1]    
     
     def get_channel_volume_query(self, chid):
         if isinstance(chid, list):
@@ -539,6 +543,7 @@ class Main(Scene):
                 expected_results = command.count('&') + 1
                 reply = b''
                 message = chr(2) + command + ';'
+                if VERBOSE: print(message)
                 sock.sendall(bytes(message, 'ascii'))
                 while reply.count(b';') < expected_results and reply[-1:] != b'\x06':
                     reply += sock.recv(64)
@@ -549,7 +554,7 @@ class Main(Scene):
                 reply = reply.replace(bytes(chr(6), 'ascii'), b"<ack>")
                 reply = reply.replace(bytes(chr(2), 'ascii'), b"<stx>")
                 reply = str(reply, 'ascii')
-        
+
             return reply
     
         # Create a TCP/IP socket
@@ -557,13 +562,13 @@ class Main(Scene):
         
         # Connect the socket to the port where the server is listening
         server_address = (self.ip, self.port)
-        #print('connecting to %s port %s' % server_address, file=sys.stderr)
-        sock.connect(server_address)
+        if VERBOSE: print('connecting to %s port %s' % server_address)
         sock.settimeout(5)
+        sock.connect(server_address)
         
         reply = sendGetReply(command)
         
-        # print(reply)
+        if VERBOSE: print(reply)
         
         #print('closing socket', file=sys.stderr)
         sock.close()
@@ -666,8 +671,8 @@ class SendsScene(Scene):
             )
             self.all_ui_elements.append(
                 RSendFader(
-                    'FDC:' if self.out_channel == 'MAL' else
-                    'AXC:' if self.out_channel[:2] == 'AX' else
+                    'FDC:' if channel_id == 'MAL' else
+                    'AXC:' if channel_id[:2] == 'AX' else
                     'MXC:',
                     self.out_channel,
                     channel_id,
@@ -695,11 +700,7 @@ class SendsScene(Scene):
         return self.cmd('MXQ:' + chid + temp)
     
     def get_channel_volumes(self, chids):
-        query = (
-            self.parent_scene.get_channel_volume_query if self.out_channel == 'MAL' else
-            self.aux_send_query if self.out_channel[:2] == 'AX' else
-            self.mtx_send_query
-        )
+        query = self.parent_scene.get_channel_volume_query
         return self.parent_scene.get_multiple_results(chids, query)
     
     def mirror_scroll_pos(self):

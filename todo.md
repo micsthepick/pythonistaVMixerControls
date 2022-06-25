@@ -16,10 +16,8 @@
 [X] channel name
     [X] get channel name
         [X] channel name
-        [?] channel color
     [X] display channel name
         [X] text
-        [?] coloring
 [X] fader for volume on each channel
     [X] interactive faders
     [X] label for fader
@@ -44,12 +42,26 @@
 [ ] visual feeback
     [ ] suceeded commands
     [ ] failed commands
+[ ] channel display filtering
+    [ ] select channels
+    [ ] only show acl enabled features
+[ ] change server settings
+[ ] hide mute for mains
+
+[ ] top bar
+    [ ] close this menu button
+    [ ] refresh button
+    [ ] configure proxy button
+    [ ] show ip address?
     
 ### Refresh functionality
 [ ] Refresh button
     [ ] Update (appropriate) sliders on refresh
     [ ] change mute / unmute to same button
     [ ] update state of mute / unmute on refresh
+    
+### persistent connection
+[ ] stub connection on class
 
 ### Testing
 [ ] regular ipad at home w/ proxy emulator
