@@ -389,26 +389,27 @@ class Main(Scene):
                     )
                 )
             )
-            self.all_ui_elements.append(
-                MuteButton(
-                    Path.rect(0, 0, 60, 60),
-                    self.cmd,
-                    'M',
-                    channel_id,
-                    parent=self.panel,
-                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 110)
+            if channel_id[:2] != 'MA':
+                self.all_ui_elements.append(
+                    MuteButton(
+                        Path.rect(0, 0, 60, 60),
+                        self.cmd,
+                        'M',
+                        channel_id,
+                        parent=self.panel,
+                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 110)
+                    )
                 )
-            )
-            self.all_ui_elements.append(
-                UnmuteButton(
-                    Path.rect(0, 0, 60, 60),
-                    self.cmd,
-                    'U',
-                    channel_id,
-                    parent=self.panel,
-                    position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 190)
+                self.all_ui_elements.append(
+                    UnmuteButton(
+                        Path.rect(0, 0, 60, 60),
+                        self.cmd,
+                        'U',
+                        channel_id,
+                        parent=self.panel,
+                        position=((r+0.5) * self.CHANNEL_SCREEN_WIDTH, self.panel_height - 190)
+                    )
                 )
-            )
             self.all_ui_elements.append(
                 SendsButton(
                     self.show_sends,

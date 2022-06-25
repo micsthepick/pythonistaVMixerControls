@@ -7,7 +7,7 @@
     [X] file based config
     [X] runtime config
     [X] optionally save config
-    [ ] reconfigure on proxy error
+    [X] reconfigure on proxy error
 
 ### urgent fixes
 [X] move slider control sensing region to same location as it got moved graphically (oops)
@@ -46,7 +46,7 @@
     [ ] select channels
     [ ] only show acl enabled features
 [ ] change server settings
-[ ] hide mute for mains
+[X] hide mute for mains
 
 [ ] channel rename view
 
