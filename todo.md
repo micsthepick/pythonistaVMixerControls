@@ -44,6 +44,12 @@
 [ ] visual feeback
     [ ] suceeded commands
     [ ] failed commands
+    
+### Refresh functionality
+[ ] Refresh button
+    [ ] Update (appropriate) sliders on refresh
+    [ ] change mute / unmute to same button
+    [ ] update state of mute / unmute on refresh
 
 ### Testing
 [ ] regular ipad at home w/ proxy emulator
