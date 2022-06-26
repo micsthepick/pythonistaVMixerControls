@@ -308,39 +308,81 @@ class ReloadButton(MyButton):
         pass
     
 
+class ConfigButton(MyButton):
+    def __init__(self, action, path, *args, **kwargs):
+        super().__init__('Reconfigure', action, path, '#33f', '#007', *args, **kwargs)
+        self.command = ''
+    
+    def update_me(self):
+        pass
+
+
+class AuthError(Exception):
+    pass
+
+
+class InvalidResponseError(Exception):
+    pass
+
+
 class Main(Scene):
     def __init__(self, *args, **kwargs):
         self.sock = None
         try:
             with open('.vmxproxypyipport', 'r') as f:
                 self.ip = f.readline().strip()
-                self.port = int(f.readline().strip())
+                self.port = f.readline().strip()
+                self.port = int(self.port) if self.port else 10000
                 self.password = f.readline().strip()
             if VERBOSE:
                 print('loaded sock params')
             if not DEBUG:
-                if not 'VRS' in self.sendGetReply('VRQ'):
+                vrq_response = self.sendGetReply('VRQ')
+                if vrq_response is None:
+                    raise ConnectionRefusedError()
+                if 'ERR' in vrq_response:
+                    if VERBOSE: print('AUTH FAILED!')
+                    raise AuthError()
+                elif 'VRS' not in vrq_response:
                     if VERBOSE: print('invalid version response')
-                    raise Exception()
-        except Exception as e:
+                    raise InvalidResponseError()
+        except AuthError:
+            return AuthException()
+        except (ConnectionRefusedError, InvalidResponseError) as e:
             if VERBOSE: print(e)
-            data = form_dialog(
-                'Configure Proxy', 
-                [
-                    {'title': 'IP', 'type': 'text'},
-                    {'title': 'PORT', 'type': 'number'},
-                    {'title': 'password', 'type': 'text'},
-                    {'title': 'remember?', 'type': 'check'},
-                ]
-            )
-            self.ip = data['IP']
-            self.port = int(data['PORT'])
-            self.password = data['password']
-            if data['remember?']:
-                with open('.vmxproxypyipport', 'w') as f:
-                    f.write(self.ip + '\n' + str(self.port) + '\n' + self.password)
+            for reconnect in range(3):
+                try:
+                    self.reconfigure()
+                    vrq_response = self.sendGetReply('VRQ')
+                    if 'ERR' in vrq_response:
+                        print('AUTH FAILED!')
+                        raise AuthException()
+                    elif 'VRS' not in vrq_response:
+                        if VERBOSE: print('invalid version response')
+                        raise Exception()
+                except Exception as e:
+                    if VERBOSE: print(e)
+                    continue
+                break
         self.sends_scene = None
         super().__init__(*args, **kwargs)
+        
+    def reconfigure(self):
+        data = form_dialog(
+            'Configure Proxy', 
+            [
+                {'title': 'IP', 'type': 'text'},
+                {'title': 'PORT', 'type': 'number', 'placeholder':'10000'},
+                {'title': 'password', 'type': 'text'},
+                {'title': 'remember?', 'type': 'check'},
+            ]
+        )
+        self.ip = data['IP'] if data['IP'] else ''
+        self.port = int(data['PORT']) if data['PORT'] else 10000
+        self.password = data['password'] if data['password'] else ''
+        if data['remember?']:
+            with open('.vmxproxypyipport', 'w') as f:
+                f.write(self.ip + '\n' + str(self.port) + '\n' + self.password)
     
     def setup(self):
         self.ch_ids = (
@@ -398,6 +440,13 @@ class Main(Scene):
             position=(150, 30)
         )
         self.all_ui_elements.append(self.reload_button)
+        self.configure_proxy_button = ConfigButton(
+            lambda x: self.reconfigure(),
+            Path.rect(0, 0, 120, 40),
+            parent=self.title_bar,
+            position=(300, 30)
+        )
+        self.all_ui_elements.append(self.configure_proxy_button)
         # main panel
         self.panel = ShapeNode(
             Path.rect(0, 0, self.panel_width, self.panel_height),
@@ -596,10 +645,10 @@ class Main(Scene):
         
     def sendGetReply(self, command):
         try:
+            if self.sock is None:
+                    self.refresh_socket()
             if self.password.strip():
                 pwd_command = chr(2) + '###PWD:' + self.password + ';'
-                if self.sock is None:
-                    self.refresh_socket()
                 try:
                     self.sock.settimeout(5)
                     self.sock.sendall(bytes(pwd_command, 'ascii'))
@@ -623,7 +672,9 @@ class Main(Scene):
                 self.sock.settimeout(5)
                 reply += self.sock.recv(64)
                 self.sock.settimeout(None)
-        except socket.timeout:
+        except Exception as e:
+            if VERBOSE: print(e)
+            self.sock = None
             reply = None
     
         if reply:

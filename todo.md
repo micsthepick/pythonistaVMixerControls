@@ -39,17 +39,17 @@
 [ ] fix orientation changes
     [X] stop rotation on phones
     [ ] allow for shuffling of elements vertically when rotating
-[ ] visual feeback
-    [ ] suceeded commands
-    [ ] failed commands (error msg?)
-[ ] change server settings
+[X] visual feeback
+    [X] suceeded commands
+    [X] failed commands
+[X] change server settings
 [X] hide mute for mains
 
 [ ] channel rename view
 
 [ ] top bar
     [X] refresh button
-    [ ] configure proxy button
+    [X] configure proxy button
     [ ] show ip address?
     
 ### Refresh functionality
