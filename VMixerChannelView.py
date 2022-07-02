@@ -8,10 +8,12 @@ from dialogs import form_dialog
 import sound
 
 DEBUG = False
-VERBOSE = 0
+VERBOSE = 2
 
 
 def get_text(res):
+    if res is None:
+        return None
     return res.split('"')[1].strip()
 
 
@@ -27,6 +29,8 @@ class ChannelName(ShapeNode):
     def update_label(self, color, name):
         self.fill_color = {0:'#444'}[0]
         self.stroke_color = {0:'#222'}[0]
+        if name is None:
+            return
         self.name = name
         self.label_text.text = name
     
@@ -104,6 +108,10 @@ class MyFader(ShapeNode):
 
 
 def get_float_as_str(res):
+    if res is None:
+        return None
+    if res.count(',') == 3:
+        return res.split(',')[-2]
     return res.split(',')[-1].rstrip(';<ack>')
 
 
@@ -119,7 +127,10 @@ class RFader(MyFader):
         self.set_value(init_value)
         
     def send_command(self):
-        self.action(self.command + ',' + self.get_value())   
+        if self.command[:2] in {'MX', 'AX'}:
+            self.action(self.command + ',' + self.get_value() + ',C')
+        else:
+            self.action(self.command + ',' + self.get_value() + ',C')
     
     def get_value(self):
         value = self.get_raw_value()
@@ -136,6 +147,8 @@ class RFader(MyFader):
         self.label.set_text(value)
         
     def set_value(self, val):
+        if val is None:
+            return
         self.label.set_text(val)
         if val.lower() == 'inf':
             self.set_raw_value(0.0)
@@ -155,6 +168,10 @@ class RSendFader(RFader):
     def __init__(self, alt_command, send_id, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.command = alt_command + str(self.id) + ',' + send_id
+        if send_id[:2] == 'MX':
+            self.query_command = 'MXQ:' + str(self.id) + ',' + send_id
+        elif send_id[:2] == 'AX':
+            self.query_command = 'AXQ:' + str(self.id) + ',' + send_id
 
 
 class ScrollBar(ShapeNode):
@@ -271,6 +288,8 @@ class MyButton(ShapeNode):
         )
 
 def get_int_from_result(res):
+    if res is None:
+        return None
     return int(res.split(',')[1].rstrip(';<ack>'))
 
 
@@ -278,7 +297,8 @@ class MuteButton(MyButton):
     def update_me(self, set_value=None):
         if set_value is not None:
             self.action_original(set_value + str(1 - self.state))
-        self.state = get_int_from_result(self.action_original(self.refresh_command))
+        newState = get_int_from_result(self.action_original(self.refresh_command))
+        self.state = 1 - newState if newState is not None else 1 - self.state
         self.button_text.text = ['Live', 'Muted'][self.state]
         self.color = ['#611', '#f11'][self.state]
         self.stroke_color = ['#300', '#600'][self.state]
@@ -288,6 +308,7 @@ class MuteButton(MyButton):
         super().__init__(label, self.update_me, path, '#611', '#300', *args, **kwargs)
         self.command = 'MUC:' + str(id) + ','
         self.refresh_command = 'MUQ:' + str(id)
+        self.state = 0
 
 
 class SendsButton(MyButton):
@@ -720,6 +741,20 @@ class SendsScene(Scene):
             ),
             anchor_point=(0, 0)
         )
+        self.title_bar = Node(
+            parent=self,
+            position=(
+                0,
+                self.bounds.height - self.parent_scene.MENU_HEIGHT
+            )
+        )
+        self.reload_button = ReloadButton(
+            lambda x: self.refresh(),
+            Path.rect(0, 0, 120, 40),
+            parent=self.title_bar,
+            position=(150, 30)
+        )
+        self.all_ui_elements.append(self.reload_button)
         # not sure why, but need to fix a pixel on left on ipad
         self.panel = Node(
             position=(0, 0),
@@ -764,8 +799,8 @@ class SendsScene(Scene):
             )
             self.all_ui_elements.append(
                 RSendFader(
-                    'FDC:' if channel_id == 'MAL' else
-                    'AXC:' if channel_id[:2] == 'AX' else
+                    'FDC:' if self.out_channel[:2] == 'MA' else
+                    'AXC:' if self.out_channel[:2] == 'AX' else
                     'MXC:',
                     self.out_channel,
                     channel_id,

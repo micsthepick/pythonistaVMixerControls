@@ -34,6 +34,7 @@
         [X] channels hooked up
 [X] configuration modal
 [X] disable DEBUG and print statments
+[ ] conditionally show mute for mains sends (inputs)
 
 ### Graphics
 [ ] fix orientation changes
@@ -57,6 +58,7 @@
     [X] Update (appropriate) sliders on refresh
     [X] change mute / unmute to same button
     [X] update state of mute / unmute on refresh
+    [ ] fix layout issues
     
 ### persistent connection
 [ ] stub connection on class
