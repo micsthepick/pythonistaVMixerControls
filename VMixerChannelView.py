@@ -172,6 +172,8 @@ class RSendFader(RFader):
             self.query_command = 'MXQ:' + str(self.id) + ',' + send_id
         elif send_id[:2] == 'AX':
             self.query_command = 'AXQ:' + str(self.id) + ',' + send_id
+        else:
+            self.command = alt_command + str(self.id)
 
 
 class ScrollBar(ShapeNode):
