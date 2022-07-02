@@ -59,6 +59,7 @@
     [X] change mute / unmute to same button
     [X] update state of mute / unmute on refresh
     [ ] fix layout issues
+    [ ] refresh linked channels automatically
     
 ### persistent connection
 [ ] stub connection on class

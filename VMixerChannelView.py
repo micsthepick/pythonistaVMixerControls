@@ -130,7 +130,7 @@ class RFader(MyFader):
         if self.command[:2] in {'MX', 'AX'}:
             self.action(self.command + ',' + self.get_value() + ',C')
         else:
-            self.action(self.command + ',' + self.get_value() + ',C')
+            self.action(self.command + ',' + self.get_value())
     
     def get_value(self):
         value = self.get_raw_value()
@@ -298,7 +298,7 @@ class MuteButton(MyButton):
         if set_value is not None:
             self.action_original(set_value + str(1 - self.state))
         newState = get_int_from_result(self.action_original(self.refresh_command))
-        self.state = 1 - newState if newState is not None else 1 - self.state
+        self.state = newState if newState is not None else 1 - self.state
         self.button_text.text = ['Live', 'Muted'][self.state]
         self.color = ['#611', '#f11'][self.state]
         self.stroke_color = ['#300', '#600'][self.state]
@@ -797,6 +797,16 @@ class SendsScene(Scene):
                     )
                 )
             )
+            if self.out_channel[:2] == 'MA':
+                mb = MuteButton(
+                    Path.rect(0, 0, 60, 60),
+                    self.cmd,
+                    'Live',
+                    channel_id,
+                    parent=self.panel,
+                    position=((r+0.5) * self.parent_scene.CHANNEL_SCREEN_WIDTH, self.parent_scene.panel_height - 110)
+                )
+                self.all_ui_elements.append(mb)
             self.all_ui_elements.append(
                 RSendFader(
                     'FDC:' if self.out_channel[:2] == 'MA' else
